@@ -1,0 +1,165 @@
+Build a full-stack web application called Glimmer. Follow the exact requirements below to generate the complete MVP at once.
+
+🛠 Tech Stack
+
+Frontend: React + Tailwind CSS (romantic/cosmic theme in purple/blue hues, dark mode by default).
+
+Animations & 3D Graphics:
+
+Three.js → starfield universe (for Memory Orb) and animated 3D pet.
+
+Framer Motion → smooth page transitions.
+
+Backend: Node.js + Express.js.
+
+Database: Google Cloud (Firestore or SQL-ready, use modular DB connection so it can be easily swapped).
+
+Authentication: JWT (email + password login/signup).
+
+Real-time Communication: Socket.io (for chats and multiplayer games).
+
+AI Chatbot: integrate OpenAI API for in-app assistance.
+
+📄 Pages to Implement
+
+Login / Signup Page
+
+Email/password auth with JWT.
+
+Store user in DB.
+
+Dashboard Page
+
+Show daily activity logs.
+
+Display user streaks (like Snapchat).
+
+Daily progress graph using Recharts.
+
+Features Page
+
+Display main features in cards.
+
+Upcoming features in a timeline or “coming soon” section.
+
+Memory Orb Universe Page
+
+Infinite Three.js starfield (twinkling stars, falling stars).
+
+Each star = saved memory.
+
+Clicking a star → memory detail popup (text/image/video).
+
+Stars relight over time as reminders.
+
+My Pet Page
+
+3D animated virtual pet using Three.js model.
+
+Pet grows/evolves based on care.
+
+User can invite one best friend to co-care.
+
+Pet behavior changes depending on relationship.
+
+Friends & Friendship Status Page
+
+Add/remove friends (like Instagram).
+
+Show friendship streaks and interaction stats.
+
+Chat Online Page
+
+Real-time messaging with Socket.io.
+
+One-to-one and group chats.
+
+Instagram-like chat UI.
+
+Games Hub Page
+
+Multiplayer duo games with Socket.io:
+
+Tic-Tac-Toe,
+
+Rock-Paper-Scissors,
+
+Simple card game.
+
+Privacy & Policies Page
+
+Contact Us Page
+
+About Us Page
+
+Help Center Page
+
+🌟 Core Features
+
+Memory Sharing → Streaks system.
+
+Friendship management (add/remove).
+
+Shared Pet Care (pet evolves with best friend interaction).
+
+AI Chatbot (OpenAI API) to guide and assist users.
+
+Clean romantic cosmic UI (dark theme, purple/blue accents, glowing stars).
+
+🎨 Design Requirements
+
+Theme: Dark, romantic, couples-friendly.
+
+Background → animated stars & cosmic gradients.
+
+Buttons → rounded (2xl), glowing hover effects.
+
+Cards → soft shadows, glassmorphism effect.
+
+Framer Motion → smooth fade/slide animations.
+
+Mobile responsive with Tailwind grid/flex layouts.
+
+📦 Project Structure
+
+/client → React frontend
+
+/src/pages → All pages (Dashboard, MemoryOrb, Pet, Friends, Chat, Games, etc.)
+
+/src/components → Reusable UI (Navbar, Footer, Chatbot, Graphs, Cards, PetUI, etc.)
+
+/src/assets → Images, icons, 3D models for pet
+
+/server → Node.js + Express backend
+
+/routes → auth, users, friends, memories, chat, games
+
+/models → User, Memory, Friend, Pet, ChatMessage, Game
+
+/controllers → business logic
+
+/sockets → Socket.io event handlers for chat & games
+
+/db → Google Cloud connection module
+
+✅ Deliverables
+
+Fully working React + Node.js + Express full-stack app.
+
+JWT authentication for login/signup.
+
+Real-time chat & duo games with Socket.io.
+
+Three.js Memory Orb Universe with interactive stars.
+
+3D animated virtual pet (basic game-like features).
+
+Dashboard with streaks and graphs.
+
+AI Chatbot connected to OpenAI API.
+
+Privacy, About, Contact, Help pages.
+
+Responsive, clean, dark cosmic design.
+
+👉 Build this as a working prototype with all routes, pages, navigation, and placeholder data where backend logic is unfinished. Make sure everything is expandable for future development.
