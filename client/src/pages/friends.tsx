@@ -10,6 +10,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Users, UserPlus, MessageCircle, Gamepad2, Check, X, Zap } from "lucide-react";
+import type { Friend } from "@shared/schema";
+
+interface FriendWithDetails extends Friend {
+  friend?: {
+    id: string;
+    username: string;
+    displayName: string | null;
+  };
+}
 
 export default function Friends() {
   const { toast } = useToast();
@@ -17,9 +26,11 @@ export default function Friends() {
   const [addFriendDialogOpen, setAddFriendDialogOpen] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
 
-  const { data: friendsData = [], isLoading } = useQuery({
+  const { data: friendsData = [], isLoading } = useQuery<FriendWithDetails[]>({
     queryKey: ["/api/friends"],
   });
+
+  const friends = friendsData as FriendWithDetails[];
 
   const addFriendMutation = useMutation({
     mutationFn: async (username: string) => {
@@ -72,8 +83,8 @@ export default function Friends() {
     updateFriendshipMutation.mutate({ id, status });
   };
 
-  const acceptedFriends = friendsData.filter((f: any) => f.status === "accepted");
-  const pendingRequests = friendsData.filter((f: any) => f.status === "pending");
+  const acceptedFriends = friends.filter(f => f.status === "accepted");
+  const pendingRequests = friends.filter(f => f.status === "pending");
 
   if (isLoading) {
     return (

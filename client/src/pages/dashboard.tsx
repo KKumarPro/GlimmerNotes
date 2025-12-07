@@ -2,44 +2,53 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Zap, Star, Users, Heart, Sparkles } from "lucide-react";
+import cosmicBg from "@assets/Untitled_1759075376180.png";
+import type { User, Activity } from "@shared/schema";
+
+interface DashboardData {
+  user: User;
+  memories: number;
+  friends: number;
+  pet: any;
+  activities: Activity[];
+}
 
 export default function Dashboard() {
-  const { data: dashboardData, isLoading } = useQuery({
+  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
     queryKey: ["/api/dashboard"],
   });
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-        </div>
-      </Layout>
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          backgroundImage: `url(${cosmicBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="text-white text-xl">Loading...</div>
+      </div>
     );
   }
 
   const user = dashboardData?.user;
   const activities = dashboardData?.activities || [];
 
-  // Mock data for the chart
-  const chartData = [
-    { day: "Mon", memories: 2, interactions: 5 },
-    { day: "Tue", memories: 1, interactions: 8 },
-    { day: "Wed", memories: 3, interactions: 6 },
-    { day: "Thu", memories: 2, interactions: 9 },
-    { day: "Fri", memories: 4, interactions: 7 },
-    { day: "Sat", memories: 3, interactions: 12 },
-    { day: "Sun", memories: 2, interactions: 10 },
-  ];
-
   return (
     <Layout>
-      <div className="py-12">
+      <div 
+        className="py-12 min-h-screen"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${cosmicBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Welcome Header */}
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -55,7 +64,6 @@ export default function Dashboard() {
             <p className="text-lg text-muted-foreground">Your cosmic journey continues...</p>
           </motion.div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -130,44 +138,6 @@ export default function Dashboard() {
             </motion.div>
           </div>
 
-          {/* Progress Chart Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="mb-12"
-          >
-            <Card className="glassmorphism" data-testid="card-progress-chart">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-foreground flex items-center">
-                  <Sparkles className="w-5 h-5 mr-2 text-primary" />
-                  Activity Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                        }}
-                      />
-                      <Bar dataKey="memories" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="interactions" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Recent Activity */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -182,10 +152,11 @@ export default function Dashboard() {
                   <div className="text-center py-8">
                     <Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No recent activities. Start exploring the cosmos!</p>
+                    <p className="text-sm text-muted-foreground mt-2">Create memories, care for your pet, or connect with friends to see your activity here.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {activities.map((activity: any, index: number) => (
+                    {activities.map((activity, index) => (
                       <motion.div
                         key={activity.id}
                         className="flex items-center space-x-4 p-4 bg-muted/30 rounded-xl"
@@ -205,7 +176,7 @@ export default function Dashboard() {
                             {activity.description}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(activity.createdAt).toLocaleString()}
+                            {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : ''}
                           </p>
                         </div>
                       </motion.div>

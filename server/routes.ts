@@ -25,7 +25,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (message.type === 'auth') {
           userId = message.userId;
-          connectedUsers.set(userId, ws);
+          if (userId) {
+            connectedUsers.set(userId, ws);
+          }
         }
         
         if (message.type === 'chat') {
@@ -187,35 +189,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (!pet) return res.status(404).json({ error: "Pet not found" });
     
+    const happiness = pet.happiness ?? 50;
+    const energy = pet.energy ?? 50;
+    const bond = pet.bond ?? 30;
+    
     let updates: Partial<typeof pet> = {};
     
     switch (action) {
       case "feed":
         updates = { 
-          happiness: Math.min(100, pet.happiness + 10),
-          energy: Math.min(100, pet.energy + 15),
+          happiness: Math.min(100, happiness + 10),
+          energy: Math.min(100, energy + 15),
           lastFed: new Date()
         };
         break;
       case "play":
         updates = { 
-          happiness: Math.min(100, pet.happiness + 15),
-          bond: Math.min(100, pet.bond + 5),
-          energy: Math.max(0, pet.energy - 10),
+          happiness: Math.min(100, happiness + 15),
+          bond: Math.min(100, bond + 5),
+          energy: Math.max(0, energy - 10),
           lastPlayed: new Date()
         };
         break;
       case "sleep":
         updates = { 
-          energy: Math.min(100, pet.energy + 25),
+          energy: Math.min(100, energy + 25),
           mood: "Rested"
         };
         break;
       case "exercise":
         updates = { 
-          happiness: Math.min(100, pet.happiness + 8),
-          energy: Math.max(0, pet.energy - 15),
-          bond: Math.min(100, pet.bond + 3)
+          happiness: Math.min(100, happiness + 8),
+          energy: Math.max(0, energy - 15),
+          bond: Math.min(100, bond + 3)
         };
         break;
     }

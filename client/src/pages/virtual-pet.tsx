@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
+import type { Pet } from "@shared/schema";
 
 export default function VirtualPet() {
   const { toast } = useToast();
@@ -18,7 +19,7 @@ export default function VirtualPet() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
 
-  const { data: pet, isLoading } = useQuery({
+  const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["/api/pet"],
   });
 
@@ -48,7 +49,6 @@ export default function VirtualPet() {
 
   const inviteFriendMutation = useMutation({
     mutationFn: async (username: string) => {
-      // This would be implemented to find user by username and send co-care invite
       const response = await apiRequest("POST", "/api/friends", { friendId: username });
       return response.json();
     },
@@ -74,7 +74,6 @@ export default function VirtualPet() {
   };
 
   const handlePetClick = () => {
-    // Random positive interaction when clicking pet
     const actions = ["play", "feed"];
     const randomAction = actions[Math.floor(Math.random() * actions.length)];
     handlePetAction(randomAction);
@@ -112,11 +111,14 @@ export default function VirtualPet() {
     );
   }
 
+  const happiness = pet.happiness ?? 50;
+  const energy = pet.energy ?? 50;
+  const bond = pet.bond ?? 30;
+
   return (
     <Layout>
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -128,7 +130,6 @@ export default function VirtualPet() {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Pet Display */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -138,7 +139,6 @@ export default function VirtualPet() {
                 <CardContent className="p-8">
                   <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
                   
-                  {/* Pet Status Bars */}
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-foreground font-medium flex items-center">
@@ -146,8 +146,8 @@ export default function VirtualPet() {
                         Happiness
                       </span>
                       <div className="flex items-center space-x-2">
-                        <Progress value={pet.happiness} className="w-32" data-testid="progress-happiness" />
-                        <span className="text-sm text-muted-foreground">{pet.happiness}%</span>
+                        <Progress value={happiness} className="w-32" data-testid="progress-happiness" />
+                        <span className="text-sm text-muted-foreground">{happiness}%</span>
                       </div>
                     </div>
                     
@@ -157,8 +157,8 @@ export default function VirtualPet() {
                         Energy
                       </span>
                       <div className="flex items-center space-x-2">
-                        <Progress value={pet.energy} className="w-32" data-testid="progress-energy" />
-                        <span className="text-sm text-muted-foreground">{pet.energy}%</span>
+                        <Progress value={energy} className="w-32" data-testid="progress-energy" />
+                        <span className="text-sm text-muted-foreground">{energy}%</span>
                       </div>
                     </div>
                     
@@ -168,8 +168,8 @@ export default function VirtualPet() {
                         Bond
                       </span>
                       <div className="flex items-center space-x-2">
-                        <Progress value={pet.bond} className="w-32" data-testid="progress-bond" />
-                        <span className="text-sm text-muted-foreground">{pet.bond}%</span>
+                        <Progress value={bond} className="w-32" data-testid="progress-bond" />
+                        <span className="text-sm text-muted-foreground">{bond}%</span>
                       </div>
                     </div>
                   </div>
@@ -177,9 +177,7 @@ export default function VirtualPet() {
               </Card>
             </motion.div>
 
-            {/* Pet Management */}
             <div className="space-y-6">
-              {/* Pet Info */}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -193,7 +191,7 @@ export default function VirtualPet() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Level</p>
-                        <p className="text-lg font-semibold text-foreground" data-testid="text-pet-level">{pet.level}</p>
+                        <p className="text-lg font-semibold text-foreground" data-testid="text-pet-level">{pet.level ?? 1}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Species</p>
@@ -202,19 +200,18 @@ export default function VirtualPet() {
                       <div>
                         <p className="text-sm text-muted-foreground">Age</p>
                         <p className="text-lg font-semibold text-foreground" data-testid="text-pet-age">
-                          {Math.floor((Date.now() - new Date(pet.createdAt!).getTime()) / (1000 * 60 * 60 * 24))} days
+                          {pet.createdAt ? Math.floor((Date.now() - new Date(pet.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Mood</p>
-                        <p className="text-lg font-semibold text-foreground" data-testid="text-pet-mood">{pet.mood}</p>
+                        <p className="text-lg font-semibold text-foreground" data-testid="text-pet-mood">{pet.mood ?? "Neutral"}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
 
-              {/* Care Actions */}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -273,7 +270,6 @@ export default function VirtualPet() {
                 </Card>
               </motion.div>
 
-              {/* Co-Care Partner */}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}

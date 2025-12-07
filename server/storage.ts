@@ -1,9 +1,12 @@
 import { type User, type InsertUser, type Memory, type InsertMemory, type Friend, type InsertFriend, type Pet, type InsertPet, type ChatMessage, type InsertChatMessage, type Game, type InsertGame, type Activity, type InsertActivity } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { users, memories, friends, pets, chatMessages, games, activities } from "@shared/schema";
+import { db } from "./db";
+import { eq, or, and, desc } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PgSession = connectPgSimple(session);
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -37,62 +40,42 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
   getActivitiesByUser(userId: string, limit?: number): Promise<Activity[]>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private memories: Map<string, Memory>;
-  private friends: Map<string, Friend>;
-  private pets: Map<string, Pet>;
-  private chatMessages: Map<string, ChatMessage>;
-  private games: Map<string, Game>;
-  private activities: Map<string, Activity>;
-  sessionStore: session.SessionStore;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.memories = new Map();
-    this.friends = new Map();
-    this.pets = new Map();
-    this.chatMessages = new Map();
-    this.games = new Map();
-    this.activities = new Map();
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PgSession({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
+    const [user] = await db.insert(users).values({
       ...insertUser,
-      id,
-      currentStreak: 0,
-      longestStreak: 0,
-      memoriesCount: 0,
-      friendsCount: 0,
-      petLevel: 1,
-      lastActive: new Date(),
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
+      displayName: insertUser.displayName || null,
+    }).returning();
 
-    // Create default pet for new user
     await this.createPet({
-      userId: id,
+      userId: user.id,
       name: "Stardust",
       species: "Cosmic Fairy",
       level: 1,
@@ -106,56 +89,45 @@ export class MemStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user || undefined;
   }
 
   async createMemory(insertMemory: InsertMemory): Promise<Memory> {
-    const id = randomUUID();
-    const memory: Memory = {
+    const [memory] = await db.insert(memories).values({
       ...insertMemory,
-      id,
-      createdAt: new Date(),
-    };
-    this.memories.set(id, memory);
+      content: insertMemory.content || null,
+      starPosition: insertMemory.starPosition || null,
+      isPublic: insertMemory.isPublic ?? false,
+    }).returning();
 
-    // Update user's memory count
-    const user = this.users.get(insertMemory.userId);
+    const user = await this.getUser(insertMemory.userId);
     if (user) {
-      await this.updateUser(user.id, { memoriesCount: user.memoriesCount + 1 });
+      await this.updateUser(user.id, { memoriesCount: (user.memoriesCount || 0) + 1 });
     }
 
     return memory;
   }
 
   async getMemoriesByUser(userId: string): Promise<Memory[]> {
-    return Array.from(this.memories.values()).filter(memory => memory.userId === userId);
+    return db.select().from(memories).where(eq(memories.userId, userId)).orderBy(desc(memories.createdAt));
   }
 
   async getMemory(id: string): Promise<Memory | undefined> {
-    return this.memories.get(id);
+    const [memory] = await db.select().from(memories).where(eq(memories.id, id));
+    return memory || undefined;
   }
 
   async createFriend(insertFriend: InsertFriend): Promise<Friend> {
-    const id = randomUUID();
-    const friend: Friend = {
+    const [friend] = await db.insert(friends).values({
       ...insertFriend,
-      id,
-      streakCount: 0,
-      lastInteraction: new Date(),
-      createdAt: new Date(),
-    };
-    this.friends.set(id, friend);
+      status: insertFriend.status || "pending",
+    }).returning();
 
-    // Update user's friend count if accepted
     if (friend.status === "accepted") {
-      const user = this.users.get(friend.userId);
+      const user = await this.getUser(friend.userId);
       if (user) {
-        await this.updateUser(user.id, { friendsCount: user.friendsCount + 1 });
+        await this.updateUser(user.id, { friendsCount: (user.friendsCount || 0) + 1 });
       }
     }
 
@@ -163,125 +135,117 @@ export class MemStorage implements IStorage {
   }
 
   async getFriendsByUser(userId: string): Promise<Friend[]> {
-    return Array.from(this.friends.values()).filter(friend => 
-      friend.userId === userId || friend.friendId === userId
+    return db.select().from(friends).where(
+      or(eq(friends.userId, userId), eq(friends.friendId, userId))
     );
   }
 
   async getFriendship(userId: string, friendId: string): Promise<Friend | undefined> {
-    return Array.from(this.friends.values()).find(friend =>
-      (friend.userId === userId && friend.friendId === friendId) ||
-      (friend.userId === friendId && friend.friendId === userId)
+    const [friendship] = await db.select().from(friends).where(
+      or(
+        and(eq(friends.userId, userId), eq(friends.friendId, friendId)),
+        and(eq(friends.userId, friendId), eq(friends.friendId, userId))
+      )
     );
+    return friendship || undefined;
   }
 
   async updateFriendship(id: string, updates: Partial<Friend>): Promise<Friend | undefined> {
-    const friend = this.friends.get(id);
-    if (!friend) return undefined;
-    
-    const updatedFriend = { ...friend, ...updates };
-    this.friends.set(id, updatedFriend);
-    return updatedFriend;
+    const [friend] = await db.update(friends).set(updates).where(eq(friends.id, id)).returning();
+    return friend || undefined;
   }
 
   async getPetByUser(userId: string): Promise<Pet | undefined> {
-    return Array.from(this.pets.values()).find(pet => pet.userId === userId);
+    const [pet] = await db.select().from(pets).where(eq(pets.userId, userId));
+    return pet || undefined;
   }
 
   async createPet(insertPet: InsertPet): Promise<Pet> {
-    const id = randomUUID();
-    const pet: Pet = {
+    const [pet] = await db.insert(pets).values({
       ...insertPet,
-      id,
-      createdAt: new Date(),
-    };
-    this.pets.set(id, pet);
+      name: insertPet.name || "Stardust",
+      species: insertPet.species || "Cosmic Fairy",
+      level: insertPet.level ?? 1,
+      happiness: insertPet.happiness ?? 50,
+      energy: insertPet.energy ?? 50,
+      bond: insertPet.bond ?? 30,
+      mood: insertPet.mood || "Neutral",
+    }).returning();
     return pet;
   }
 
   async updatePet(id: string, updates: Partial<Pet>): Promise<Pet | undefined> {
-    const pet = this.pets.get(id);
-    if (!pet) return undefined;
-    
-    const updatedPet = { ...pet, ...updates };
-    this.pets.set(id, updatedPet);
-    return updatedPet;
+    const [pet] = await db.update(pets).set(updates).where(eq(pets.id, id)).returning();
+    return pet || undefined;
   }
 
   async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
-    const id = randomUUID();
-    const message: ChatMessage = {
+    const [message] = await db.insert(chatMessages).values({
       ...insertMessage,
-      id,
-      createdAt: new Date(),
-    };
-    this.chatMessages.set(id, message);
+      type: insertMessage.type || "text",
+      receiverId: insertMessage.receiverId || null,
+      roomId: insertMessage.roomId || null,
+    }).returning();
     return message;
   }
 
   async getChatMessages(userId1: string, userId2: string): Promise<ChatMessage[]> {
-    return Array.from(this.chatMessages.values())
-      .filter(msg => 
-        (msg.senderId === userId1 && msg.receiverId === userId2) ||
-        (msg.senderId === userId2 && msg.receiverId === userId1)
+    return db.select().from(chatMessages).where(
+      or(
+        and(eq(chatMessages.senderId, userId1), eq(chatMessages.receiverId, userId2)),
+        and(eq(chatMessages.senderId, userId2), eq(chatMessages.receiverId, userId1))
       )
-      .sort((a, b) => a.createdAt!.getTime() - b.createdAt!.getTime());
+    ).orderBy(chatMessages.createdAt);
   }
 
   async getGroupChatMessages(roomId: string): Promise<ChatMessage[]> {
-    return Array.from(this.chatMessages.values())
-      .filter(msg => msg.roomId === roomId)
-      .sort((a, b) => a.createdAt!.getTime() - b.createdAt!.getTime());
+    return db.select().from(chatMessages).where(eq(chatMessages.roomId, roomId)).orderBy(chatMessages.createdAt);
   }
 
   async createGame(insertGame: InsertGame): Promise<Game> {
-    const id = randomUUID();
-    const game: Game = {
+    const [game] = await db.insert(games).values({
       ...insertGame,
-      id,
-      createdAt: new Date(),
-    };
-    this.games.set(id, game);
+      status: insertGame.status || "active",
+      gameState: insertGame.gameState || null,
+      winnerId: insertGame.winnerId || null,
+      currentTurn: insertGame.currentTurn || null,
+    }).returning();
     return game;
   }
 
   async getGame(id: string): Promise<Game | undefined> {
-    return this.games.get(id);
+    const [game] = await db.select().from(games).where(eq(games.id, id));
+    return game || undefined;
   }
 
   async updateGame(id: string, updates: Partial<Game>): Promise<Game | undefined> {
-    const game = this.games.get(id);
-    if (!game) return undefined;
-    
-    const updatedGame = { ...game, ...updates };
-    this.games.set(id, updatedGame);
-    return updatedGame;
+    const [game] = await db.update(games).set(updates).where(eq(games.id, id)).returning();
+    return game || undefined;
   }
 
   async getActiveGamesByUser(userId: string): Promise<Game[]> {
-    return Array.from(this.games.values()).filter(game => 
-      (game.player1Id === userId || game.player2Id === userId) && 
-      game.status === "active"
+    return db.select().from(games).where(
+      and(
+        or(eq(games.player1Id, userId), eq(games.player2Id, userId)),
+        eq(games.status, "active")
+      )
     );
   }
 
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
-    const id = randomUUID();
-    const activity: Activity = {
+    const [activity] = await db.insert(activities).values({
       ...insertActivity,
-      id,
-      createdAt: new Date(),
-    };
-    this.activities.set(id, activity);
+      data: insertActivity.data || null,
+    }).returning();
     return activity;
   }
 
   async getActivitiesByUser(userId: string, limit = 10): Promise<Activity[]> {
-    return Array.from(this.activities.values())
-      .filter(activity => activity.userId === userId)
-      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime())
-      .slice(0, limit);
+    return db.select().from(activities)
+      .where(eq(activities.userId, userId))
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

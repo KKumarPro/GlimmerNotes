@@ -10,6 +10,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, Send, Users } from "lucide-react";
+import type { Friend, ChatMessage } from "@shared/schema";
+
+interface FriendWithDetails extends Friend {
+  friend?: {
+    id: string;
+    username: string;
+    displayName: string | null;
+  };
+}
 
 export default function Chat() {
   const { user } = useAuth();
@@ -17,23 +26,25 @@ export default function Chat() {
   const { socket, sendMessage } = useSocket();
   const [selectedChat, setSelectedChat] = useState<string | null>(friendId || null);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: friends = [] } = useQuery({
+  const { data: friendsData = [] } = useQuery<FriendWithDetails[]>({
     queryKey: ["/api/friends"],
   });
 
-  const { data: chatMessages = [] } = useQuery({
+  const friends = friendsData as FriendWithDetails[];
+
+  const { data: chatMessagesData = [] } = useQuery<ChatMessage[]>({
     queryKey: ["/api/chat", selectedChat],
     enabled: !!selectedChat,
   });
 
   useEffect(() => {
-    if (chatMessages) {
-      setMessages(chatMessages);
+    if (chatMessagesData && Array.isArray(chatMessagesData)) {
+      setMessages(chatMessagesData);
     }
-  }, [chatMessages]);
+  }, [chatMessagesData]);
 
   useEffect(() => {
     if (socket) {
@@ -65,12 +76,13 @@ export default function Chat() {
 
     sendMessage(messageData);
     
-    // Optimistically add message to UI
-    const newMessage = {
+    const newMessage: ChatMessage = {
       id: Date.now().toString(),
       senderId: user.id,
       receiverId: selectedChat,
       content: message.trim(),
+      type: 'text',
+      roomId: null,
       createdAt: new Date(),
     };
     
@@ -85,8 +97,8 @@ export default function Chat() {
     }
   };
 
-  const acceptedFriends = friends.filter((f: any) => f.status === "accepted");
-  const selectedFriend = acceptedFriends.find((f: any) => 
+  const acceptedFriends = friends.filter(f => f.status === "accepted");
+  const selectedFriend = acceptedFriends.find(f => 
     f.userId === selectedChat || f.friendId === selectedChat
   );
 
@@ -94,7 +106,6 @@ export default function Chat() {
     <Layout>
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -106,7 +117,6 @@ export default function Chat() {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Chat List */}
             <div className="lg:col-span-1">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -125,10 +135,11 @@ export default function Chat() {
                       <div className="text-center py-8">
                         <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                         <p className="text-muted-foreground text-sm">No friends to chat with yet</p>
+                        <p className="text-muted-foreground text-xs mt-2">Add friends to start chatting!</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {acceptedFriends.map((friend: any, index: number) => {
+                        {acceptedFriends.map((friend, index) => {
                           const friendUserId = friend.userId === user?.id ? friend.friendId : friend.userId;
                           const isSelected = selectedChat === friendUserId;
                           
@@ -169,7 +180,6 @@ export default function Chat() {
               </motion.div>
             </div>
 
-            {/* Chat Window */}
             <div className="lg:col-span-3">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -179,7 +189,6 @@ export default function Chat() {
                 <Card className="glassmorphism h-96 flex flex-col" data-testid="card-chat-window">
                   {selectedChat && selectedFriend ? (
                     <>
-                      {/* Chat Header */}
                       <CardHeader className="border-b border-border/50">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-10 h-10 bg-gradient-to-r from-primary to-accent">
@@ -196,7 +205,6 @@ export default function Chat() {
                         </div>
                       </CardHeader>
 
-                      {/* Messages */}
                       <CardContent className="flex-1 p-4 overflow-y-auto">
                         <div className="space-y-4" data-testid="messages-container">
                           {messages.length === 0 ? (
@@ -205,7 +213,7 @@ export default function Chat() {
                               <p className="text-muted-foreground">Start a conversation!</p>
                             </div>
                           ) : (
-                            messages.map((msg: any, index: number) => {
+                            messages.map((msg, index) => {
                               const isOwnMessage = msg.senderId === user?.id;
                               
                               return (
@@ -226,10 +234,10 @@ export default function Chat() {
                                   >
                                     <p className="text-sm">{msg.content}</p>
                                     <p className="text-xs opacity-70 mt-1">
-                                      {new Date(msg.createdAt).toLocaleTimeString([], { 
+                                      {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { 
                                         hour: '2-digit', 
                                         minute: '2-digit' 
-                                      })}
+                                      }) : ''}
                                     </p>
                                   </div>
                                 </motion.div>
@@ -240,7 +248,6 @@ export default function Chat() {
                         </div>
                       </CardContent>
 
-                      {/* Message Input */}
                       <div className="p-4 border-t border-border/50">
                         <div className="flex space-x-3">
                           <Input

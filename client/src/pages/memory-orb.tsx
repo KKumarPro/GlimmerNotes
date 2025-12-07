@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
@@ -9,18 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Plus, Star } from "lucide-react";
+import { Sparkles, Plus, Star, Image as ImageIcon, FileText, X } from "lucide-react";
+import type { Memory } from "@shared/schema";
 
 const createMemorySchema = z.object({
   title: z.string().min(1, "Title is required"),
   content: z.string().min(1, "Content is required"),
-  type: z.string().default("text"),
+  type: z.enum(["text", "photo"]).default("text"),
   isPublic: z.boolean().default(false),
+  photoUrl: z.string().optional(),
 });
 
 type CreateMemoryData = z.infer<typeof createMemorySchema>;
@@ -28,17 +31,28 @@ type CreateMemoryData = z.infer<typeof createMemorySchema>;
 export default function MemoryOrb() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedMemory, setSelectedMemory] = useState<any>(null);
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: memories = [], isLoading } = useQuery({
+  const { data: memoriesData = [], isLoading } = useQuery<Memory[]>({
     queryKey: ["/api/memories"],
   });
 
+  const memories = memoriesData as Memory[];
+
   const createMemoryMutation = useMutation({
     mutationFn: async (data: CreateMemoryData) => {
+      const memoryContent = data.type === "photo" && previewImage 
+        ? `${data.content}\n\n[Photo: ${previewImage}]`
+        : data.content;
+
       const response = await apiRequest("POST", "/api/memories", {
-        ...data,
+        title: data.title,
+        content: memoryContent,
+        type: data.type,
+        isPublic: data.isPublic,
         starPosition: {
           x: (Math.random() - 0.5) * 80,
           y: (Math.random() - 0.5) * 80,
@@ -51,13 +65,14 @@ export default function MemoryOrb() {
       queryClient.invalidateQueries({ queryKey: ["/api/memories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       setCreateDialogOpen(false);
+      setPreviewImage(null);
       form.reset();
       toast({
         title: "Memory Created",
         description: "Your memory has been added to the cosmic universe!",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to create memory. Please try again.",
@@ -76,8 +91,39 @@ export default function MemoryOrb() {
     },
   });
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const onCreateMemory = (data: CreateMemoryData) => {
     createMemoryMutation.mutate(data);
+  };
+
+  const extractPhotoFromContent = (content: string | null) => {
+    if (!content) return null;
+    const match = content.match(/\[Photo: (data:image[^\]]+)\]/);
+    return match ? match[1] : null;
+  };
+
+  const getTextContent = (content: string | null) => {
+    if (!content) return '';
+    return content.replace(/\n\n\[Photo: data:image[^\]]+\]/, '');
   };
 
   if (isLoading) {
@@ -94,7 +140,6 @@ export default function MemoryOrb() {
     <Layout>
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -105,7 +150,6 @@ export default function MemoryOrb() {
             <p className="text-lg text-muted-foreground">Your memories, scattered like stars across the cosmos</p>
           </motion.div>
 
-          {/* 3D Memory Orb */}
           <motion.div
             className="mb-8"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -131,14 +175,19 @@ export default function MemoryOrb() {
             </Card>
           </motion.div>
 
-          {/* Action Buttons */}
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <Dialog open={createDialogOpen} onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                setPreviewImage(null);
+                form.reset();
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button 
                   className="px-8 py-3 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 glow-button"
@@ -148,12 +197,44 @@ export default function MemoryOrb() {
                   Add New Memory
                 </Button>
               </DialogTrigger>
-              <DialogContent className="glassmorphism border-border/50" data-testid="dialog-create-memory">
+              <DialogContent className="glassmorphism border-border/50 max-w-lg" data-testid="dialog-create-memory">
                 <DialogHeader>
                   <DialogTitle className="text-foreground">Create New Memory</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onCreateMemory)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Memory Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-input border-border text-foreground" data-testid="select-memory-type">
+                                <SelectValue placeholder="Select memory type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="glassmorphism border-border/50">
+                              <SelectItem value="text">
+                                <div className="flex items-center">
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  Text Memory
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="photo">
+                                <div className="flex items-center">
+                                  <ImageIcon className="w-4 h-4 mr-2" />
+                                  Photo Memory
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
                     <FormField
                       control={form.control}
                       name="title"
@@ -172,12 +253,57 @@ export default function MemoryOrb() {
                         </FormItem>
                       )}
                     />
+
+                    {form.watch("type") === "photo" && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">Photo</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          ref={fileInputRef}
+                          className="hidden"
+                          data-testid="input-photo-file"
+                        />
+                        {previewImage ? (
+                          <div className="relative">
+                            <img 
+                              src={previewImage} 
+                              alt="Preview" 
+                              className="w-full h-48 object-cover rounded-lg border border-border"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-2 right-2"
+                              onClick={() => setPreviewImage(null)}
+                              data-testid="button-remove-photo"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full glassmorphism border-border"
+                            onClick={() => fileInputRef.current?.click()}
+                            data-testid="button-upload-photo"
+                          >
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
                     <FormField
                       control={form.control}
                       name="content"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Content</FormLabel>
+                          <FormLabel>Description</FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Describe your memory..."
@@ -214,7 +340,6 @@ export default function MemoryOrb() {
             </Button>
           </motion.div>
 
-          {/* Memory Grid */}
           {memories.length > 0 && (
             <motion.div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
@@ -222,54 +347,82 @@ export default function MemoryOrb() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.5 }}
             >
-              {memories.map((memory: any, index: number) => (
-                <motion.div
-                  key={memory.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <Card 
-                    className="glassmorphism cursor-pointer hover:bg-muted/20 transition-colors"
-                    onClick={() => setSelectedMemory(memory)}
-                    data-testid={`memory-card-${index}`}
+              {memories.map((memory, index) => {
+                const photoUrl = extractPhotoFromContent(memory.content);
+                const textContent = getTextContent(memory.content);
+
+                return (
+                  <motion.div
+                    key={memory.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    whileHover={{ scale: 1.02 }}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-lg text-foreground flex items-center">
-                        <Star className="w-5 h-5 mr-2 text-primary" />
-                        {memory.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground line-clamp-3">
-                        {memory.content}
-                      </p>
-                      <div className="mt-4 text-xs text-muted-foreground">
-                        {new Date(memory.createdAt).toLocaleDateString()}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                    <Card 
+                      className="glassmorphism cursor-pointer hover:bg-muted/20 transition-colors overflow-hidden"
+                      onClick={() => setSelectedMemory(memory)}
+                      data-testid={`memory-card-${index}`}
+                    >
+                      {photoUrl && (
+                        <div className="w-full h-32 overflow-hidden">
+                          <img 
+                            src={photoUrl} 
+                            alt={memory.title} 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <CardHeader>
+                        <CardTitle className="text-lg text-foreground flex items-center">
+                          {memory.type === "photo" ? (
+                            <ImageIcon className="w-5 h-5 mr-2 text-primary" />
+                          ) : (
+                            <Star className="w-5 h-5 mr-2 text-primary" />
+                          )}
+                          {memory.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-muted-foreground line-clamp-3">
+                          {textContent}
+                        </p>
+                        <div className="mt-4 text-xs text-muted-foreground">
+                          {memory.createdAt ? new Date(memory.createdAt).toLocaleDateString() : ''}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
 
-          {/* Memory Detail Dialog */}
           <Dialog open={!!selectedMemory} onOpenChange={() => setSelectedMemory(null)}>
-            <DialogContent className="glassmorphism border-border/50" data-testid="dialog-memory-detail">
+            <DialogContent className="glassmorphism border-border/50 max-w-lg" data-testid="dialog-memory-detail">
               <DialogHeader>
                 <DialogTitle className="text-foreground flex items-center">
-                  <Star className="w-5 h-5 mr-2 text-primary" />
+                  {selectedMemory?.type === "photo" ? (
+                    <ImageIcon className="w-5 h-5 mr-2 text-primary" />
+                  ) : (
+                    <Star className="w-5 h-5 mr-2 text-primary" />
+                  )}
                   {selectedMemory?.title}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                {selectedMemory && extractPhotoFromContent(selectedMemory.content) && (
+                  <img 
+                    src={extractPhotoFromContent(selectedMemory.content)!} 
+                    alt={selectedMemory.title} 
+                    className="w-full rounded-lg"
+                  />
+                )}
                 <p className="text-foreground whitespace-pre-wrap">
-                  {selectedMemory?.content}
+                  {selectedMemory && getTextContent(selectedMemory.content)}
                 </p>
                 <div className="text-sm text-muted-foreground">
-                  Created: {selectedMemory && new Date(selectedMemory.createdAt).toLocaleString()}
+                  Created: {selectedMemory?.createdAt && new Date(selectedMemory.createdAt).toLocaleString()}
                 </div>
               </div>
             </DialogContent>

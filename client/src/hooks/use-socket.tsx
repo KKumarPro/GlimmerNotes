@@ -18,8 +18,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws`;
+    
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+      return;
+    }
 
     ws.onopen = () => {
       setIsConnected(true);

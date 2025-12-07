@@ -1,123 +1,92 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TicTacToe, RockPaperScissors, CosmicCards } from "@/components/GameComponents";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { useSocket } from "@/hooks/use-socket";
-import { useToast } from "@/hooks/use-toast";
-import { Gamepad2, Users, Trophy, Plus, Play } from "lucide-react";
+import { Gamepad2, ExternalLink, Puzzle, Target, Sparkles, Trophy } from "lucide-react";
+import type { Friend, Game } from "@shared/schema";
+
+interface FriendWithDetails extends Friend {
+  friend?: {
+    id: string;
+    username: string;
+    displayName: string | null;
+  };
+}
+
+const msnGamesUrl = "https://www.msn.com/en-in/play";
+
+const featuredGames = [
+  {
+    id: "solitaire",
+    name: "Solitaire",
+    description: "Classic card game - relaxing and timeless",
+    icon: "🃏",
+    url: `${msnGamesUrl}?gameId=solitaire`,
+  },
+  {
+    id: "mahjong",
+    name: "Mahjong",
+    description: "Match tiles in this ancient puzzle game",
+    icon: "🀄",
+    url: `${msnGamesUrl}?gameId=mahjong`,
+  },
+  {
+    id: "wordament",
+    name: "Wordament",
+    description: "Find words in a letter grid challenge",
+    icon: "📝",
+    url: `${msnGamesUrl}?gameId=wordament`,
+  },
+  {
+    id: "sudoku",
+    name: "Sudoku",
+    description: "Number puzzle for brain training",
+    icon: "🔢",
+    url: `${msnGamesUrl}?gameId=sudoku`,
+  },
+  {
+    id: "jigsaw",
+    name: "Jigsaw Puzzles",
+    description: "Beautiful picture puzzles to solve",
+    icon: "🧩",
+    url: `${msnGamesUrl}?gameId=jigsaw`,
+  },
+  {
+    id: "trivia",
+    name: "Trivia Games",
+    description: "Test your knowledge on various topics",
+    icon: "❓",
+    url: `${msnGamesUrl}?gameId=trivia`,
+  },
+];
 
 export default function Games() {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { sendMessage } = useSocket();
-  const [createGameDialogOpen, setCreateGameDialogOpen] = useState(false);
-  const [selectedGameType, setSelectedGameType] = useState<string>("");
-  const [selectedOpponent, setSelectedOpponent] = useState<string>("");
-  const [activeGame, setActiveGame] = useState<any>(null);
+  const [hoveredGame, setHoveredGame] = useState<string | null>(null);
 
-  const { data: activeGames = [] } = useQuery({
+  const { data: activeGamesData = [] } = useQuery<Game[]>({
     queryKey: ["/api/games"],
   });
 
-  const { data: friends = [] } = useQuery({
+  const { data: friendsData = [] } = useQuery<FriendWithDetails[]>({
     queryKey: ["/api/friends"],
   });
 
-  const createGameMutation = useMutation({
-    mutationFn: async (gameData: { gameType: string; player2Id: string }) => {
-      const response = await apiRequest("POST", "/api/games", gameData);
-      return response.json();
-    },
-    onSuccess: (game) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/games"] });
-      setCreateGameDialogOpen(false);
-      setSelectedGameType("");
-      setSelectedOpponent("");
-      setActiveGame(game);
-      toast({
-        title: "Game Created",
-        description: "Your game has been created! Waiting for opponent...",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create game. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  const activeGames = activeGamesData as Game[];
+  const friends = friendsData as FriendWithDetails[];
+  const acceptedFriends = friends.filter(f => f.status === "accepted");
 
-  const handleCreateGame = () => {
-    if (selectedGameType && selectedOpponent) {
-      createGameMutation.mutate({
-        gameType: selectedGameType,
-        player2Id: selectedOpponent,
-      });
-    }
-  };
-
-  const handleGameMove = (gameId: string, gameState: any, nextTurn: string) => {
-    sendMessage({
-      type: 'game_move',
-      gameId,
-      gameState,
-      nextTurn,
-    });
-  };
-
-  const acceptedFriends = friends.filter((f: any) => f.status === "accepted");
-
-  const gameTypes = [
-    { value: "tic-tac-toe", label: "Cosmic Tic-Tac-Toe", icon: "❌" },
-    { value: "rock-paper-scissors", label: "Stellar RPS", icon: "✂️" },
-    { value: "cards", label: "Cosmic Cards", icon: "🃏" },
-  ];
-
-  const renderGame = (game: any) => {
-    switch (game.gameType) {
-      case "tic-tac-toe":
-        return (
-          <TicTacToe
-            game={game}
-            currentUserId={user?.id || ""}
-            onMove={(gameState, nextTurn) => handleGameMove(game.id, gameState, nextTurn)}
-          />
-        );
-      case "rock-paper-scissors":
-        return (
-          <RockPaperScissors
-            game={game}
-            currentUserId={user?.id || ""}
-            onMove={(gameState, nextTurn) => handleGameMove(game.id, gameState, nextTurn)}
-          />
-        );
-      case "cards":
-        return (
-          <CosmicCards
-            game={game}
-            currentUserId={user?.id || ""}
-            onMove={(gameState, nextTurn) => handleGameMove(game.id, gameState, nextTurn)}
-          />
-        );
-      default:
-        return <div>Unknown game type</div>;
-    }
+  const openGame = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
     <Layout>
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -128,73 +97,153 @@ export default function Games() {
             <p className="text-lg text-muted-foreground">Play together across the cosmos</p>
           </motion.div>
 
-          {/* Active Game */}
-          {activeGame && (
+          <motion.div
+            className="mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <Card className="glassmorphism" data-testid="card-msn-games">
+              <CardHeader>
+                <CardTitle className="text-xl text-foreground flex items-center">
+                  <Sparkles className="w-6 h-6 mr-2 text-primary" />
+                  MSN Games Collection
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-6">
+                  Explore hundreds of free games! Click on any game below or visit the full collection.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {featuredGames.map((game, index) => (
+                    <motion.div
+                      key={game.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.1 }}
+                      onMouseEnter={() => setHoveredGame(game.id)}
+                      onMouseLeave={() => setHoveredGame(null)}
+                    >
+                      <Card 
+                        className={`glassmorphism cursor-pointer transition-all ${
+                          hoveredGame === game.id ? 'bg-muted/30 scale-105' : ''
+                        }`}
+                        onClick={() => openGame(game.url)}
+                        data-testid={`game-card-${game.id}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-r from-primary to-accent rounded-xl flex items-center justify-center text-2xl">
+                              {game.icon}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-foreground">{game.name}</h3>
+                              <p className="text-sm text-muted-foreground">{game.description}</p>
+                            </div>
+                            <ExternalLink className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={() => openGame(msnGamesUrl)}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 glow-button"
+                  data-testid="button-explore-all"
+                >
+                  <Gamepad2 className="w-5 h-5 mr-2" />
+                  Explore All MSN Games
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <motion.div
-              className="mb-12"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <Card className="glassmorphism" data-testid="card-active-game">
-                <CardHeader>
-                  <CardTitle className="text-xl text-foreground flex items-center">
-                    <Trophy className="w-6 h-6 mr-2 text-primary" />
-                    Active Game: {gameTypes.find(g => g.value === activeGame.gameType)?.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {renderGame(activeGame)}
+              <Card className="glassmorphism text-center h-full" data-testid="card-puzzle-games">
+                <CardContent className="p-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center">
+                    <Puzzle className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Puzzle Games</h3>
+                  <p className="text-muted-foreground text-sm mb-4">Challenge your mind with logic puzzles</p>
+                  <Button
+                    variant="outline"
+                    className="w-full glassmorphism border-border"
+                    onClick={() => openGame(`${msnGamesUrl}?category=puzzle`)}
+                    data-testid="button-puzzle-games"
+                  >
+                    Play Puzzles
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
-          )}
 
-          {/* Game Types Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            {gameTypes.map((gameType, index) => (
-              <motion.div
-                key={gameType.value}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-              >
-                <Card className="glassmorphism hover:bg-muted/20 transition-colors" data-testid={`card-game-${gameType.value}`}>
-                  <CardHeader className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center text-2xl">
-                      {gameType.icon}
-                    </div>
-                    <CardTitle className="text-xl text-foreground">{gameType.label}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {gameType.value === "tic-tac-toe" && "Classic strategy with a cosmic twist"}
-                      {gameType.value === "rock-paper-scissors" && "Rock, Paper, Scissors in space"}
-                      {gameType.value === "cards" && "Simple card battle game"}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 glow-button"
-                      onClick={() => {
-                        setSelectedGameType(gameType.value);
-                        setCreateGameDialogOpen(true);
-                      }}
-                      data-testid={`button-play-${gameType.value}`}
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Play Now
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Active Games List */}
-          {activeGames.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <Card className="glassmorphism text-center h-full" data-testid="card-action-games">
+                <CardContent className="p-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-accent to-primary rounded-2xl flex items-center justify-center">
+                    <Target className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Action Games</h3>
+                  <p className="text-muted-foreground text-sm mb-4">Fast-paced games for quick fun</p>
+                  <Button
+                    variant="outline"
+                    className="w-full glassmorphism border-border"
+                    onClick={() => openGame(`${msnGamesUrl}?category=action`)}
+                    data-testid="button-action-games"
+                  >
+                    Play Action
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <Card className="glassmorphism text-center h-full" data-testid="card-card-games">
+                <CardContent className="p-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center">
+                    <Trophy className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Card Games</h3>
+                  <p className="text-muted-foreground text-sm mb-4">Classic card games collection</p>
+                  <Button
+                    variant="outline"
+                    className="w-full glassmorphism border-border"
+                    onClick={() => openGame(`${msnGamesUrl}?category=cards`)}
+                    data-testid="button-card-games"
+                  >
+                    Play Cards
+                    <ExternalLink className="w-4 h-4 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {activeGames.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
             >
               <Card className="glassmorphism" data-testid="card-active-games">
                 <CardHeader>
@@ -202,9 +251,8 @@ export default function Games() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {activeGames.map((game: any, index: number) => {
+                    {activeGames.map((game, index) => {
                       const isPlayerTurn = game.currentTurn === user?.id;
-                      const opponent = game.player1Id === user?.id ? "Player 2" : "Player 1";
                       
                       return (
                         <motion.div
@@ -216,20 +264,19 @@ export default function Games() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium text-foreground">
-                                vs {opponent}
+                                {game.gameType}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {gameTypes.find(g => g.value === game.gameType)?.label} • {isPlayerTurn ? "Your turn" : "Waiting"}
+                                {isPlayerTurn ? "Your turn" : "Waiting for opponent"}
                               </p>
                             </div>
                             <Button
                               size="sm"
                               variant={isPlayerTurn ? "default" : "outline"}
                               className={isPlayerTurn ? "bg-gradient-to-r from-primary to-accent" : "glassmorphism border-border"}
-                              onClick={() => setActiveGame(game)}
                               data-testid={`button-continue-${index}`}
                             >
-                              {isPlayerTurn ? "Continue" : "View"}
+                              {isPlayerTurn ? "Play" : "View"}
                             </Button>
                           </div>
                         </motion.div>
@@ -241,59 +288,16 @@ export default function Games() {
             </motion.div>
           )}
 
-          {/* Create Game Dialog */}
-          <Dialog open={createGameDialogOpen} onOpenChange={setCreateGameDialogOpen}>
-            <DialogContent className="glassmorphism border-border/50" data-testid="dialog-create-game">
-              <DialogHeader>
-                <DialogTitle className="text-foreground">Create New Game</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Game Type</label>
-                  <Select value={selectedGameType} onValueChange={setSelectedGameType}>
-                    <SelectTrigger className="bg-input border-border text-foreground" data-testid="select-game-type">
-                      <SelectValue placeholder="Choose a game" />
-                    </SelectTrigger>
-                    <SelectContent className="glassmorphism border-border/50">
-                      {gameTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.icon} {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Opponent</label>
-                  <Select value={selectedOpponent} onValueChange={setSelectedOpponent}>
-                    <SelectTrigger className="bg-input border-border text-foreground" data-testid="select-opponent">
-                      <SelectValue placeholder="Choose an opponent" />
-                    </SelectTrigger>
-                    <SelectContent className="glassmorphism border-border/50">
-                      {acceptedFriends.map((friend: any) => {
-                        const friendId = friend.userId === user?.id ? friend.friendId : friend.userId;
-                        return (
-                          <SelectItem key={friendId} value={friendId}>
-                            {friend.friend?.displayName || friend.friend?.username || "Friend"}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={handleCreateGame}
-                  disabled={!selectedGameType || !selectedOpponent || createGameMutation.isPending}
-                  className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
-                  data-testid="button-create-game"
-                >
-                  {createGameMutation.isPending ? "Creating..." : "Create Game"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <motion.div
+            className="mt-12 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <p className="text-muted-foreground text-sm">
+              Games are provided by MSN Games. Click any game to open in a new tab.
+            </p>
+          </motion.div>
         </div>
       </div>
     </Layout>

@@ -10,16 +10,26 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { insertUserSchema } from "@shared/schema";
 import { StarField } from "@/components/StarField";
 import { Sparkles, Heart, Users } from "lucide-react";
 
-const loginSchema = insertUserSchema.pick({ username: true, password: true });
-const registerSchema = insertUserSchema.extend({
-  confirmPassword: z.string(),
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const registerSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  displayName: z.string().min(1, "Display name is required").transform(val => val.trim()),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+}).refine((data) => data.displayName.length > 0, {
+  message: "Display name cannot be empty",
+  path: ["displayName"],
 });
 
 export default function AuthPage() {
@@ -63,7 +73,6 @@ export default function AuthPage() {
       <StarField />
       
       <div className="relative z-10 min-h-screen flex">
-        {/* Left Column - Form */}
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -155,7 +164,7 @@ export default function AuthPage() {
                           name="username"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Username</FormLabel>
+                              <FormLabel>Username *</FormLabel>
                               <FormControl>
                                 <Input 
                                   placeholder="Choose a username" 
@@ -173,7 +182,7 @@ export default function AuthPage() {
                           name="email"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email</FormLabel>
+                              <FormLabel>Email *</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="email" 
@@ -192,7 +201,7 @@ export default function AuthPage() {
                           name="displayName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Display Name</FormLabel>
+                              <FormLabel>Display Name *</FormLabel>
                               <FormControl>
                                 <Input 
                                   placeholder="How should we call you?" 
@@ -210,11 +219,11 @@ export default function AuthPage() {
                           name="password"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Password</FormLabel>
+                              <FormLabel>Password *</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="password" 
-                                  placeholder="Create a password" 
+                                  placeholder="Create a password (min 6 characters)" 
                                   {...field} 
                                   className="bg-input border-border text-foreground"
                                   data-testid="input-register-password"
@@ -229,7 +238,7 @@ export default function AuthPage() {
                           name="confirmPassword"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Confirm Password</FormLabel>
+                              <FormLabel>Confirm Password *</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="password" 
@@ -260,7 +269,6 @@ export default function AuthPage() {
           </motion.div>
         </div>
 
-        {/* Right Column - Hero */}
         <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-8">
           <motion.div
             initial={{ opacity: 0, x: 20 }}
