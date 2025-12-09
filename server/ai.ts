@@ -15,7 +15,7 @@ let geminiModel: ReturnType<GoogleGenerativeAI["getGenerativeModel"]> | null = n
 if (process.env.GEMINI_API_KEY) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   // fast, cheap text model
-  geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
 // Helper: are we allowed to use Gemini?
