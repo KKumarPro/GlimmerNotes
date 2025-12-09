@@ -106,8 +106,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(memory);
     } catch (error) {
-      res.status(400).json({ error: "Invalid memory data" });
-    }
+    console.error("Create memory error:", error);
+
+    // Optional: be more specific if it's validation
+    // import { ZodError } from "zod"; at the top if you want to branch
+    return res.status(400).json({ error: "Invalid memory data" });
+  }
+
   });
 
   app.get("/api/memories", async (req, res) => {
