@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { generateChatbotResponse, generateMemoryInsight, generatePetInteraction } from "./openai";
+import { generateChatbotResponse, generateMemoryInsight, generatePetInteraction } from "./ai";
 import { z } from "zod";
 import { insertMemorySchema, insertFriendSchema, insertChatMessageSchema, insertGameSchema, insertActivitySchema } from "@shared/schema";
 
