@@ -146,28 +146,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(friendsWithDetails);
   });
 
-  app.post("/api/friends", async (req, res) => {
+    app.post("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-    
+
+    // <-- START: debug logs (add these)
+    console.log("POST /api/friends body:", JSON.stringify(req.body));
+    // <-- END: debug logs
+
     try {
       const { friendId } = req.body;
       const existingFriendship = await storage.getFriendship(req.user!.id, friendId);
-      
+
       if (existingFriendship) {
         return res.status(400).json({ error: "Friendship already exists" });
       }
-      
+
       const friendship = await storage.createFriend({
         userId: req.user!.id,
         friendId,
         status: "pending"
       });
-      
+
       res.json(friendship);
     } catch (error) {
+      // <-- START: improved error logging
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error("Create friend error:", err.stack || err.message || err);
+      // also echo the body again so we have full context
+      console.error("Create friend request body at error:", JSON.stringify(req.body));
+      // <-- END: improved error logging
+
       res.status(400).json({ error: "Invalid friend request" });
     }
   });
+
 
   app.patch("/api/friends/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
