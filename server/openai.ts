@@ -1,90 +1,117 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export async function generateChatbotResponse(userMessage: string, context?: string): Promise<string> {
+/* ---------------------------------------------
+   CHATBOT RESPONSE (MAIN AI)
+----------------------------------------------*/
+export async function generateChatbotResponse(
+  userMessage: string,
+  context?: string
+): Promise<string> {
   try {
-    const systemPrompt = `You are Cosmic Assistant, an AI helper for the Glimmer app - a romantic cosmic social platform. 
-    You help users navigate features like:
-    - Memory Orb Universe (sharing memories as stars)
-    - Virtual Pet Care (cosmic pets that grow with friendship)
-    - Real-time Chat and multiplayer games
-    - Friendship streaks and connections
-    
-    Be helpful, friendly, and maintain the cosmic/romantic theme. Keep responses concise and actionable.
-    ${context ? `Context: ${context}` : ''}`;
+    const systemPrompt = `
+      You are Cosmic Assistant, an AI helper inside the Glimmer app — a romantic cosmic social world.
+      You guide users through:
+      • their Memory Orb Universe (memories as stars)
+      • cosmic virtual pets
+      • friendship streaks & emotional growth
+      • multiplayer games and real-time chat
+      
+      Always be warm, magical, cosmic, supportive.
+      Keep replies short and meaningful.
+      ${context ? `Context: ${context}` : ""}
+    `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
+        { role: "user", content: userMessage },
       ],
+      max_tokens: 200,
+      temperature: 0.7,
     });
 
-    return response.choices[0].message.content || "I'm here to help! What would you like to know about Glimmer?";
+    return completion.choices[0].message.content ?? 
+      "✨ The cosmos is listening. What would you like to know? ✨";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return "I'm having trouble connecting to my cosmic wisdom right now. Please try again in a moment!";
+    return "✨ I lost connection to the cosmic stream. Try again? ✨";
   }
 }
 
-export async function generateMemoryInsight(memories: any[]): Promise<{
-  insight: string;
-  suggestion: string;
-}> {
+/* ---------------------------------------------
+   MEMORY INSIGHT
+----------------------------------------------*/
+export async function generateMemoryInsight(memories: any[]) {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
+    const formatted = JSON.stringify(memories.slice(0, 5));
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
-          content: "Analyze user memories and provide a personalized insight and suggestion for creating new memories. Respond with JSON in this format: { 'insight': string, 'suggestion': string }"
+          content:
+            "Analyze user memories and respond ONLY in JSON: { insight: string, suggestion: string }",
         },
         {
           role: "user",
-          content: `Analyze these memories: ${JSON.stringify(memories.slice(0, 5))}`
-        }
+          content: `Analyze these memories: ${formatted}`,
+        },
       ],
-      response_format: { type: "json_object" },
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const data = JSON.parse(completion.choices[0].message.content || "{}");
+
     return {
-      insight: result.insight || "Your memories shine like stars across the cosmic void.",
-      suggestion: result.suggestion || "Consider sharing a memory from today to keep your constellation growing!"
+      insight:
+        data.insight ||
+        "Your memories glitter across the cosmic sky in beautiful patterns.",
+      suggestion:
+        data.suggestion ||
+        "Try adding a fresh memory today to nurture your constellation.",
     };
   } catch (error) {
     console.error("Memory insight error:", error);
     return {
-      insight: "Your memories create a beautiful constellation of experiences.",
-      suggestion: "Share a special moment to add another star to your universe!"
+      insight: "Your memories shine like distant stars.",
+      suggestion: "Add a new memory orb to keep your universe growing.",
     };
   }
 }
 
-export async function generatePetInteraction(petData: any, action: string): Promise<string> {
+/* ---------------------------------------------
+   PET INTERACTION
+----------------------------------------------*/
+export async function generatePetInteraction(pet: any, action: string) {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-5",
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "Generate a short, cute response for a cosmic virtual pet interaction. Keep it under 50 words and maintain a magical/cosmic theme."
+          content:
+            "You generate cute cosmic responses from a magical virtual pet. Keep it under 40 words.",
         },
         {
           role: "user",
-          content: `Pet: ${petData.name} (${petData.species}, Level ${petData.level}, Mood: ${petData.mood}). Action: ${action}`
-        }
+          content: `Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood ${pet.mood}. Action: ${action}`,
+        },
       ],
+      max_tokens: 100,
     });
 
-    return response.choices[0].message.content || "✨ Your cosmic companion sparkles with joy! ✨";
+    return (
+      completion.choices[0].message.content ||
+      "✨ Your cosmic companion wiggles with stardust joy! ✨"
+    );
   } catch (error) {
     console.error("Pet interaction error:", error);
-    return "✨ Your cosmic companion sparkles with joy! ✨";
+    return "✨ Your cosmic companion wiggles with stardust joy! ✨";
   }
 }
