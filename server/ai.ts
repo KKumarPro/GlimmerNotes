@@ -75,6 +75,45 @@ export async function generateMemoryInsight(memories: any[]): Promise<{
 
     const formatted = JSON.stringify(memories.slice(0, 5));
 
+    // If Gemini is configured, use it
+    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `
+Analyze these memories and return ONLY JSON in this shape:
+{
+  "insight": string,
+  "suggestion": string
+}
+
+Memories: ${formatted}
+      `.trim();
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text() || "{}";
+
+      try {
+        const parsed = JSON.parse(text);
+        return {
+          insight:
+            parsed.insight ||
+            "Your memories cluster into a gentle constellation of feelings.",
+          suggestion:
+            parsed.suggestion ||
+            "Try adding a new memory about something that made you smile today.",
+        };
+      } catch {
+        // If parsing fails, fallback
+        return {
+          insight: "Your memories shimmer softly across your sky.",
+          suggestion:
+            "Share another special moment to brighten your constellation.",
+        };
+      }
+    }
+
+    // Default: OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -116,24 +155,40 @@ export async function generatePetInteraction(
   action: string
 ): Promise<string> {
   try {
-    const prompt = `
-Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood ${pet.mood}
+    const basePrompt = `
+Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood: ${pet.mood}
 Action: ${action}
-
-Create a short, cute, cosmic reaction under 40 words.
     `.trim();
 
+    // Use Gemini if configured
+    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const result = await model.generateContent(`
+Generate a short, cute, cosmic pet reaction under 40 words.
+
+${basePrompt}
+      `.trim());
+
+      return (
+        result.response.text() ||
+        "✨ Your cosmic companion twinkles with stardust happiness! ✨"
+      );
+    }
+
+    // Default: OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are a magical cosmic pet reacting to your human's actions. Be cute, warm and sparkly.",
+            "You are a magical cosmic pet reacting to your human's actions. Be cute, warm and sparkly. Keep it under 40 words.",
         },
         {
           role: "user",
-          content: prompt,
+          content: basePrompt,
         },
       ],
       max_tokens: 80,
