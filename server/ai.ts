@@ -1,38 +1,52 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Which provider should we use? "gemini" or "openai"
+const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
+
+// ---------- OPENAI CLIENT ----------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// We will only use Gemini inside functions (no crash on boot)
-const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
+// ---------- GEMINI CLIENT (v1) ----------
+let geminiModel: ReturnType<GoogleGenerativeAI["getGenerativeModel"]> | null = null;
 
-// ---------------- CHATBOT ----------------
+if (process.env.GEMINI_API_KEY) {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  // fast, cheap text model
+  geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+}
+
+// Helper: are we allowed to use Gemini?
+function canUseGemini() {
+  return AI_PROVIDER === "gemini" && !!geminiModel;
+}
+
+/* ===========================================================
+   CHATBOT RESPONSE
+=========================================================== */
 export async function generateChatbotResponse(
   userMessage: string,
   context?: string
 ): Promise<string> {
   try {
-    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
-      // Use Gemini
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
-
+    if (canUseGemini()) {
       const prompt = `
 You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
-Keep replies short, warm, magical, and helpful.
+Help with memories, pets, friendships, games and feelings.
+Keep replies short, warm, magical, and practical.
 ${context ? `Context: ${context}` : ""}
 
 User: ${userMessage}
       `.trim();
 
-      const result = await model.generateContent(prompt);
+      const result = await geminiModel!.generateContent(prompt);
       const text = result.response.text();
-      return text || "✨ The stars are quiet... try again? ✨";
+      return text || "✨ The stars are listening. Tell me more. ✨";
     }
 
-    // Default: OpenAI
+    // Default / fallback: OpenAI
     const systemPrompt = `
 You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
 Help with memories, pets, friendships, and feelings.
@@ -51,7 +65,7 @@ ${context ? `Context: ${context}` : ""}
     });
 
     return (
-      completion.choices[0].message.content ||
+      completion.choices[0].message.content ??
       "✨ I’m listening among the stars. Tell me more. ✨"
     );
   } catch (error) {
@@ -60,7 +74,9 @@ ${context ? `Context: ${context}` : ""}
   }
 }
 
-// ---------------- MEMORY INSIGHT ----------------
+/* ===========================================================
+   MEMORY INSIGHT
+=========================================================== */
 export async function generateMemoryInsight(memories: any[]): Promise<{
   insight: string;
   suggestion: string;
@@ -75,13 +91,10 @@ export async function generateMemoryInsight(memories: any[]): Promise<{
 
     const formatted = JSON.stringify(memories.slice(0, 5));
 
-    // If Gemini is configured, use it
-    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
-
+    if (canUseGemini()) {
       const prompt = `
-Analyze these memories and return ONLY JSON in this shape:
+Analyze these user memories and respond ONLY in JSON:
+
 {
   "insight": string,
   "suggestion": string
@@ -90,7 +103,7 @@ Analyze these memories and return ONLY JSON in this shape:
 Memories: ${formatted}
       `.trim();
 
-      const result = await model.generateContent(prompt);
+      const result = await geminiModel!.generateContent(prompt);
       const text = result.response.text() || "{}";
 
       try {
@@ -98,13 +111,12 @@ Memories: ${formatted}
         return {
           insight:
             parsed.insight ||
-            "Your memories cluster into a gentle constellation of feelings.",
+            "Your memories cluster into a gentle constellation of experiences.",
           suggestion:
             parsed.suggestion ||
             "Try adding a new memory about something that made you smile today.",
         };
       } catch {
-        // If parsing fails, fallback
         return {
           insight: "Your memories shimmer softly across your sky.",
           suggestion:
@@ -113,7 +125,7 @@ Memories: ${formatted}
       }
     }
 
-    // Default: OpenAI
+    // Fallback: OpenAI JSON response
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -149,7 +161,9 @@ Memories: ${formatted}
   }
 }
 
-// ---------------- PET INTERACTION ----------------
+/* ===========================================================
+   PET INTERACTION
+=========================================================== */
 export async function generatePetInteraction(
   pet: any,
   action: string
@@ -160,24 +174,22 @@ Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood: ${pet.mood}
 Action: ${action}
     `.trim();
 
-    // Use Gemini if configured
-    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
-
-      const result = await model.generateContent(`
+    if (canUseGemini()) {
+      const prompt = `
 Generate a short, cute, cosmic pet reaction under 40 words.
 
 ${basePrompt}
-      `.trim());
+      `.trim();
 
+      const result = await geminiModel!.generateContent(prompt);
+      const text = result.response.text();
       return (
-        result.response.text() ||
+        text ||
         "✨ Your cosmic companion twinkles with stardust happiness! ✨"
       );
     }
 
-    // Default: OpenAI
+    // Fallback: OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
