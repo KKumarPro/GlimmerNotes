@@ -17,7 +17,7 @@ export async function generateChatbotResponse(
     if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
       // Use Gemini
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
 
       const prompt = `
 You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
@@ -78,7 +78,7 @@ export async function generateMemoryInsight(memories: any[]): Promise<{
     // If Gemini is configured, use it
     if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
 
       const prompt = `
 Analyze these memories and return ONLY JSON in this shape:
@@ -163,7 +163,7 @@ Action: ${action}
     // Use Gemini if configured
     if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "models/chat-bison-001" });
 
       const result = await model.generateContent(`
 Generate a short, cute, cosmic pet reaction under 40 words.
