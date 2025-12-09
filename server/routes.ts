@@ -25,74 +25,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const connectedUsers = new Map<string, WebSocket>();
 
-    wss.on('connection', (ws) => {
+  wss.on('connection', (ws) => {
     let userId: string | null = null;
-    // heartbeat flag
-    (ws as any).isAlive = true;
-
-    // when a client responds to our ping
-    ws.on('pong', () => {
-      (ws as any).isAlive = true;
-    });
 
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
-
+        
         if (message.type === 'auth') {
           userId = message.userId;
           if (userId) {
             connectedUsers.set(userId, ws);
-
-            // Update last_active in DB so presence is accurate
-            try {
-              await storage.updateUserLastActive(userId); // implement / exists in storage
-            } catch (err) {
-              // optional: if storage method doesn't exist, ignore
-              console.warn("Could not update last_active for", userId, err);
-            }
-
-            // broadcast presence change to other connected users
-            const presencePayload = JSON.stringify({
-              type: 'presence',
-              userId,
-              status: 'online'
-            });
-            connectedUsers.forEach((clientWs, id) => {
-              if (id !== userId && clientWs.readyState === WebSocket.OPEN) {
-                clientWs.send(presencePayload);
-              }
-            });
           }
         }
-
+        
         if (message.type === 'chat') {
-          // persist the message
           const chatMessage = await storage.createChatMessage({
             senderId: message.senderId,
             receiverId: message.receiverId,
             content: message.content,
             type: 'text'
           });
-
-          const payload = JSON.stringify({
-            type: 'chat',
-            message: chatMessage
-          });
-
-          // send to receiver if online
+          
+          // Send to receiver if online
           const receiverWs = connectedUsers.get(message.receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-            receiverWs.send(payload);
-          }
-
-          // ALSO send to sender (ack)
-          const senderWs = connectedUsers.get(message.senderId);
-          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-            senderWs.send(payload);
+            receiverWs.send(JSON.stringify({
+              type: 'chat',
+              message: chatMessage
+            }));
           }
         }
-
+        
         if (message.type === 'game_move') {
           const game = await storage.getGame(message.gameId);
           if (game) {
@@ -100,7 +64,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               gameState: message.gameState,
               currentTurn: message.nextTurn
             });
-
+            
+            // Notify both players
             [game.player1Id, game.player2Id].forEach(playerId => {
               const playerWs = connectedUsers.get(playerId);
               if (playerWs && playerWs.readyState === WebSocket.OPEN) {
@@ -117,77 +82,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    ws.on('close', async () => {
+    ws.on('close', () => {
       if (userId) {
         connectedUsers.delete(userId);
-
-        // update last_active so clients see offline
-        try {
-          await storage.updateUserLastActive(userId);
-        } catch (err) {
-          console.warn("Could not update last_active on close for", userId, err);
-        }
-
-        // broadcast offline presence
-        const presencePayload = JSON.stringify({
-          type: 'presence',
-          userId,
-          status: 'offline'
-        });
-        connectedUsers.forEach((clientWs) => {
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(presencePayload);
-          }
-        });
       }
-    });
-
-    ws.on('error', (err) => {
-      // ensure we remove broken sockets quickly
-      if (userId) connectedUsers.delete(userId);
-      console.error('WebSocket error for user', userId, err);
     });
   });
-
-  // Server-side heartbeat to detect dead clients every 30s
-  const interval = setInterval(() => {
-    wss.clients.forEach((ws) => {
-      if ((ws as any).isAlive === false) {
-        // find and delete user mapping
-        for (const [id, clientWs] of connectedUsers.entries()) {
-          if (clientWs === ws) {
-            connectedUsers.delete(id);
-            // attempt to update last_active in DB (best-effort)
-            storage.updateUserLastActive(id).catch(() => {});
-            // broadcast offline to others
-            const presencePayload = JSON.stringify({
-              type: 'presence',
-              userId: id,
-              status: 'offline'
-            });
-            connectedUsers.forEach((clientWsInner) => {
-              if (clientWsInner.readyState === WebSocket.OPEN) {
-                clientWsInner.send(presencePayload);
-              }
-            });
-            break;
-          }
-        }
-        try { ws.terminate(); } catch (e) {}
-        return;
-      }
-
-      (ws as any).isAlive = false;
-      try {
-        ws.ping(); // request a pong from the client
-      } catch (e) {
-        // ignore ping errors
-      }
-    });
-  }, 30000);
-
-  // When server stops, clear the interval
-  httpServer.on('close', () => clearInterval(interval));
 
   // Memory routes
   app.post("/api/memories", async (req, res) => {
