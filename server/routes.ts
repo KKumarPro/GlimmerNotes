@@ -39,23 +39,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        if (message.type === 'chat') {
+                if (message.type === 'chat') {
+          // persist the message
           const chatMessage = await storage.createChatMessage({
             senderId: message.senderId,
             receiverId: message.receiverId,
             content: message.content,
             type: 'text'
           });
-          
-          // Send to receiver if online
+
+          // prepare payload once
+          const payload = JSON.stringify({
+            type: 'chat',
+            message: chatMessage
+          });
+
+          // send to receiver if online
           const receiverWs = connectedUsers.get(message.receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-            receiverWs.send(JSON.stringify({
-              type: 'chat',
-              message: chatMessage
-            }));
+            receiverWs.send(payload);
+          }
+
+          // ALSO send to sender (ack) so their UI can show the saved message
+          const senderWs = connectedUsers.get(message.senderId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(payload);
           }
         }
+
         
         if (message.type === 'game_move') {
           const game = await storage.getGame(message.gameId);
