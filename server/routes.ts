@@ -180,6 +180,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Friend user not found" });
       }
 
+      if (friendUser.id === req.user!.id) {
+      return res.status(400).json({ error: "You cannot add yourself as a friend" });
+      }
+
       const friendRealId = friendUser.id;
 
       const existingFriendship = await storage.getFriendship(req.user!.id, friendRealId);
