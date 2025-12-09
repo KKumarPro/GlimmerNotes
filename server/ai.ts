@@ -1,145 +1,150 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// PICK PROVIDER
-const PROVIDER = process.env.AI_PROVIDER || "openai";
-
-// OPENAI CLIENT
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// GEMINI CLIENT
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// We will only use Gemini inside functions (no crash on boot)
+const AI_PROVIDER = process.env.AI_PROVIDER || "openai";
 
-// -------------------------------------
-// GENERATE CHATBOT RESPONSE
-// -------------------------------------
+// ---------------- CHATBOT ----------------
 export async function generateChatbotResponse(
-  message: string,
+  userMessage: string,
   context?: string
 ): Promise<string> {
   try {
-    if (PROVIDER === "gemini") {
-      return await generateGeminiChatResponse(message, context);
-    } else {
-      return await generateOpenAIChatResponse(message, context);
+    if (AI_PROVIDER === "gemini" && process.env.GEMINI_API_KEY) {
+      // Use Gemini
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `
+You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
+Keep replies short, warm, magical, and helpful.
+${context ? `Context: ${context}` : ""}
+
+User: ${userMessage}
+      `.trim();
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      return text || "✨ The stars are quiet... try again? ✨";
     }
-  } catch (err) {
-    console.error("AI Error:", err);
-    return "✨ My cosmic connection glitched... try again!";
+
+    // Default: OpenAI
+    const systemPrompt = `
+You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
+Help with memories, pets, friendships, and feelings.
+Keep answers short, kind, and magical.
+${context ? `Context: ${context}` : ""}
+    `.trim();
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      max_tokens: 200,
+      temperature: 0.7,
+    });
+
+    return (
+      completion.choices[0].message.content ||
+      "✨ I’m listening among the stars. Tell me more. ✨"
+    );
+  } catch (error) {
+    console.error("Chatbot error:", error);
+    return "✨ My cosmic link glitched. Please try again in a moment. ✨";
   }
 }
 
-// ----- OPENAI VERSION -----
-async function generateOpenAIChatResponse(message: string, context?: string) {
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: `
-          You are Glimmer Cosmic Assistant — magical, warm, romantic.
-          Help the user navigate memories, pets, friendship, and the universe.
-          Keep everything short, friendly, cosmic.
-          ${context ? `Context: ${context}` : ""}
-        `,
-      },
-      { role: "user", content: message },
-    ],
-    max_tokens: 200,
-    temperature: 0.7,
-  });
-
-  return completion.choices[0].message.content!;
-}
-
-// ----- GEMINI VERSION -----
-async function generateGeminiChatResponse(message: string, context?: string) {
-  const systemPrompt = `
-    You are Glimmer Cosmic Assistant — magical, warm, romantic.
-    Help the user explore their cosmic memories, pets, friendships, and games.
-    Keep replies short, friendly, and cosmic.
-    ${context ? `Context: ${context}` : ""}
-  `;
-
-  const result = await geminiModel.generateContent([
-    systemPrompt,
-    `User: ${message}`,
-  ]);
-
-  return result.response.text();
-}
-
-// -------------------------------------
-// MEMORY INSIGHT (works with BOTH)
-// -------------------------------------
-export async function generateMemoryInsight(memories: any[]) {
-  const text = JSON.stringify(memories.slice(0, 5));
-
-  if (PROVIDER === "gemini") {
-    const result = await geminiModel.generateContent([
-      "Analyze these memories in JSON format: {insight: string, suggestion: string}",
-      text,
-    ]);
-
-    try {
-      return JSON.parse(result.response.text());
-    } catch {
+// ---------------- MEMORY INSIGHT ----------------
+export async function generateMemoryInsight(memories: any[]): Promise<{
+  insight: string;
+  suggestion: string;
+}> {
+  try {
+    if (!memories.length) {
       return {
-        insight: "Your memories shimmer across the cosmos.",
-        suggestion: "Add a new star (memory) to your universe today!",
+        insight: "No memories yet — your universe is waiting for its first star.",
+        suggestion: "Add a small memory from today to begin your constellation.",
       };
     }
+
+    const formatted = JSON.stringify(memories.slice(0, 5));
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Analyze these memories and respond ONLY with JSON: { insight: string, suggestion: string }",
+        },
+        {
+          role: "user",
+          content: `Memories: ${formatted}`,
+        },
+      ],
+    });
+
+    const parsed = JSON.parse(completion.choices[0].message.content || "{}");
+
+    return {
+      insight:
+        parsed.insight ||
+        "Your memories cluster around a few bright emotional themes.",
+      suggestion:
+        parsed.suggestion ||
+        "Try adding a new memory about something small but meaningful today.",
+    };
+  } catch (error) {
+    console.error("Memory insight error:", error);
+    return {
+      insight: "Your memories glitter softly across time.",
+      suggestion: "Share a new moment to brighten your constellation.",
+    };
   }
-
-  // OpenAI fallback
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "Analyze user memories and return JSON: { insight: string, suggestion: string }",
-      },
-      { role: "user", content: text },
-    ],
-  });
-
-  return JSON.parse(completion.choices[0].message.content!);
 }
 
-// -------------------------------------
-// PET INTERACTION (BOTH)
-// -------------------------------------
-export async function generatePetInteraction(pet: any, action: string) {
-  const input = `
-    Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood ${pet.mood}
-    Action: ${action}
-  `;
+// ---------------- PET INTERACTION ----------------
+export async function generatePetInteraction(
+  pet: any,
+  action: string
+): Promise<string> {
+  try {
+    const prompt = `
+Pet: ${pet.name} (${pet.species}), Level ${pet.level}, Mood ${pet.mood}
+Action: ${action}
 
-  if (PROVIDER === "gemini") {
-    const result = await geminiModel.generateContent([
-      "Generate a cute cosmic pet response (max 40 words).",
-      input,
-    ]);
+Create a short, cute, cosmic reaction under 40 words.
+    `.trim();
 
-    return result.response.text();
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a magical cosmic pet reacting to your human's actions. Be cute, warm and sparkly.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 80,
+    });
+
+    return (
+      completion.choices[0].message.content ||
+      "✨ Your cosmic companion shimmers happily beside you. ✨"
+    );
+  } catch (error) {
+    console.error("Pet interaction error:", error);
+    return "✨ Your cosmic companion sparkles softly, staying close by. ✨";
   }
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "Generate a magical cosmic pet response under 40 words.",
-      },
-      { role: "user", content: input },
-    ],
-  });
-
-  return completion.choices[0].message.content!;
 }
