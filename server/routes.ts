@@ -40,102 +40,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         if (message.type === 'chat') {
-          // Normalize incoming
-          const senderId = message.senderId;
-          const receiverId = message.receiverId;
-          const content = message.content;
-
-          // debug: incoming
-          console.log("CHAT DEBUG: incoming", { senderId, receiverId, content });
-
-          // Fetch the latest few messages between these two users (server-side)
-          // We expect storage.getChatMessages(userA, userB) to return an array.
-          let recent = [];
-          try {
-            recent = await storage.getChatMessages(senderId, receiverId) || [];
-          } catch (err) {
-            console.warn("CHAT DEBUG: failed to read recent messages", err);
-            recent = [];
-          }
-
-          // Normalize and find the newest message reliably by timestamp
-          const normalize = (m: any) => ({
-            id: m.id ?? m._id ?? m.messageId,
-            senderId: m.sender_id ?? m.senderId ?? m.from,
-            receiverId: m.receiver_id ?? m.receiverId ?? m.to,
-            content: m.content,
-            createdAt: m.created_at ?? m.createdAt ?? m.timestamp ?? null
+          const chatMessage = await storage.createChatMessage({
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            content: message.content,
+            type: 'text'
           });
-
-          const normalizedRecent = recent.map(normalize)
-            .filter(r => r && r.createdAt)
-            .sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // ascending
-
-          const lastMessage = normalizedRecent.length ? normalizedRecent[normalizedRecent.length - 1] : null;
-          console.log("CHAT DEBUG: lastMessage", lastMessage);
-
-          // Duplicate detection: same sender, same receiver, same content within 10s
-          let chatMessage: any = null;
-          const now = Date.now();
-          if (lastMessage &&
-              lastMessage.senderId === senderId &&
-              lastMessage.receiverId === receiverId &&
-              lastMessage.content === content) {
-            const lastTs = new Date(lastMessage.createdAt).getTime();
-            if (!Number.isNaN(lastTs) && (now - lastTs) < 10000) {
-              chatMessage = lastMessage;
-              console.log("CHAT DEBUG: treating as duplicate - reusing message id", chatMessage.id);
-            }
-          }
-
-          if (!chatMessage) {
-            try {
-              chatMessage = await storage.createChatMessage({
-                senderId,
-                receiverId,
-                content,
-                type: 'text'
-              });
-              console.log("CHAT DEBUG: created message", { id: chatMessage.id ?? chatMessage._id ?? null });
-            } catch (err) {
-              console.error("CHAT DEBUG: createChatMessage error", err);
-              // still send error to client
-              const errPayload = JSON.stringify({ type: 'chat_error', error: 'Could not store message' });
-              try { ws.send(errPayload); } catch(e){}
-              return;
-            }
-          }
-
-          const payload = JSON.stringify({ type: 'chat', message: chatMessage });
-
-          // Build unique socket targets. NOTE: if the same user has multiple tabs,
-          // each tab has a different socket object. We'll send to all receiver sockets,
-          // but we'll only send to the sender socket that originated this message (ws),
-          // to avoid sending back to *every* sender tab which can create duplicates.
-          const targets = new Set<WebSocket>();
-
-          // Add receiver sockets (there may be only one in connectedUsers map, but handle extensions)
-          const receiverWs = connectedUsers.get(receiverId);
-          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) targets.add(receiverWs);
-
-          // Add the *originating* sender socket (ws) only — avoids echoing to multiple sender tabs.
-          if (ws && (ws as any).readyState === WebSocket.OPEN) targets.add(ws);
-
-          // Debug which targets we are about to send to
-          const targetInfo = Array.from(targets).map(t => ({ readyState: (t as any).readyState }));
-          console.log("CHAT DEBUG: sending payload to targets count=", targets.size, "info=", targetInfo);
-
-          for (const target of targets) {
-            try {
-              target.send(payload);
-            } catch (err) {
-              console.warn("CHAT DEBUG: send failed", err);
-            }
+          
+          // Send to receiver if online
+          const receiverWs = connectedUsers.get(message.receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(JSON.stringify({
+              type: 'chat',
+              message: chatMessage
+            }));
           }
         }
-
-
-      
+        
         if (message.type === 'game_move') {
           const game = await storage.getGame(message.gameId);
           if (game) {
@@ -225,67 +146,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(friendsWithDetails);
   });
 
-      app.post("/api/friends", async (req, res) => {
+  app.post("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-
-    console.log("POST /api/friends body:", JSON.stringify(req.body));
-
+    
     try {
-      const { friendId: rawFriendId } = req.body;
-
-      // Try to resolve a real user record for the supplied identifier.
-      // First assume the client passed a user id. If not found, and storage
-      // exposes a username lookup function, try that.
-      let friendUser = null;
-      if (rawFriendId) {
-        friendUser = await storage.getUser(rawFriendId); // common lookup by id
-
-        // Fallback: if not found and a username lookup exists, try it.
-        if (!friendUser && typeof storage.getUserByUsername === "function") {
-          friendUser = await storage.getUserByUsername(rawFriendId);
-        }
-        // Some projects use findUserByUsername / getUserByHandle — try common names
-        if (!friendUser && typeof storage.findUserByUsername === "function") {
-          friendUser = await storage.findUserByUsername(rawFriendId);
-        }
-        if (!friendUser && typeof storage.getUserByHandle === "function") {
-          friendUser = await storage.getUserByHandle(rawFriendId);
-        }
-      }
-
-      // If we couldn't resolve a user, tell the client plainly.
-      if (!friendUser) {
-        console.error("Create friend failed - user not found for:", rawFriendId);
-        return res.status(404).json({ error: "Friend user not found" });
-      }
-
-      if (friendUser.id === req.user!.id) {
-      return res.status(400).json({ error: "You cannot add yourself as a friend" });
-  }
-
-      const friendRealId = friendUser.id;
-
-      const existingFriendship = await storage.getFriendship(req.user!.id, friendRealId);
+      const { friendId } = req.body;
+      const existingFriendship = await storage.getFriendship(req.user!.id, friendId);
+      
       if (existingFriendship) {
         return res.status(400).json({ error: "Friendship already exists" });
       }
-
+      
       const friendship = await storage.createFriend({
         userId: req.user!.id,
-        friendId: friendRealId,
+        friendId,
         status: "pending"
       });
-
+      
       res.json(friendship);
-    } catch (error) {
-      console.error("Create friend error:", error && (error.stack || error.message || error));
-      console.error("Create friend request body at error:", JSON.stringify(req.body));
+    } 
+    catch (error) {
       res.status(400).json({ error: "Invalid friend request" });
     }
   });
 
-
-
+  
   app.patch("/api/friends/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
     
