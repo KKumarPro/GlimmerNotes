@@ -1,3 +1,4 @@
+import { generateFreeChatbotReply } from "./hf";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -31,48 +32,24 @@ export async function generateChatbotResponse(
   context?: string
 ): Promise<string> {
   try {
-    if (canUseGemini()) {
-      const prompt = `
-You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
-Help with memories, pets, friendships, games and feelings.
-Keep replies short, warm, magical, and practical.
+    // Build a simple prompt for the HF free model
+    const prompt = `
+You are Glimmer, a short warm assistant inside the Glimmer app.
+Keep replies short, kind, and practical.
 ${context ? `Context: ${context}` : ""}
 
 User: ${userMessage}
-      `.trim();
+`.trim();
 
-      const result = await geminiModel!.generateContent(prompt);
-      const text = result.response.text();
-      return text || "✨ The stars are listening. Tell me more. ✨";
-    }
-
-    // Default / fallback: OpenAI
-    const systemPrompt = `
-You are Glimmer, a cosmic romantic assistant inside the Glimmer app.
-Help with memories, pets, friendships, and feelings.
-Keep answers short, kind, and magical.
-${context ? `Context: ${context}` : ""}
-    `.trim();
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-      max_tokens: 200,
-      temperature: 0.7,
-    });
-
-    return (
-      completion.choices[0].message.content ??
-      "✨ I’m listening among the stars. Tell me more. ✨"
-    );
+    // Use the free Hugging Face generator we added (no billing)
+    const reply = await generateFreeChatbotReply(prompt);
+    return (reply && String(reply).trim()) || "✨ I’m listening — tell me more. ✨";
   } catch (error) {
-    console.error("Chatbot error:", error);
+    console.error("Chatbot (HF) error:", error);
     return "✨ My cosmic link glitched. Please try again in a moment. ✨";
   }
 }
+
 
 /* ===========================================================
    MEMORY INSIGHT
