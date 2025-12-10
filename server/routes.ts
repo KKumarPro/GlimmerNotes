@@ -146,26 +146,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(friendsWithDetails);
   });
 
-  app.post("/api/friends", async (req, res) => {
+    app.post("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-    
+
+    console.log("POST /api/friends body:", JSON.stringify(req.body));
+
     try {
-      const { friendId } = req.body;
-      const existingFriendship = await storage.getFriendship(req.user!.id, friendId);
-      
+      const { friendId: rawFriendId } = req.body;
+
+      // Try to resolve a real user record for the supplied identifier.
+      // First assume the client passed a user id. If not found, and storage
+      // exposes a username lookup function, try that.
+      let friendUser = null;
+      if (rawFriendId) {
+        friendUser = await storage.getUser(rawFriendId); // common lookup by id
+
+        // Fallback: if not found and a username lookup exists, try it.
+        if (!friendUser && typeof storage.getUserByUsername === "function") {
+          friendUser = await storage.getUserByUsername(rawFriendId);
+        }
+        // Some projects use findUserByUsername / getUserByHandle — try common names
+        if (!friendUser && typeof storage.findUserByUsername === "function") {
+          friendUser = await storage.findUserByUsername(rawFriendId);
+        }
+        if (!friendUser && typeof storage.getUserByHandle === "function") {
+          friendUser = await storage.getUserByHandle(rawFriendId);
+        }
+      }
+
+      if (friendUser.id === req.user!.id) {
+      return res.status(400).json({ error: "You cannot add yourself as a friend" });
+      }
+
+
+      // If we couldn't resolve a user, tell the client plainly.
+      if (!friendUser) {
+        console.error("Create friend failed - user not found for:", rawFriendId);
+        return res.status(404).json({ error: "Friend user not found" });
+      }
+
+      const friendRealId = friendUser.id;
+
+      const existingFriendship = await storage.getFriendship(req.user!.id, friendRealId);
       if (existingFriendship) {
         return res.status(400).json({ error: "Friendship already exists" });
       }
-      
+
       const friendship = await storage.createFriend({
         userId: req.user!.id,
-        friendId,
+        friendId: friendRealId,
         status: "pending"
       });
-      
+
       res.json(friendship);
-    } 
-    catch (error) {
+    } catch (error) {
+      console.error("Create friend error:", error && (error.stack || error.message || error));
+      console.error("Create friend request body at error:", JSON.stringify(req.body));
       res.status(400).json({ error: "Invalid friend request" });
     }
   });
