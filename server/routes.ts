@@ -102,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // still send error to client
               const errPayload = JSON.stringify({ type: 'chat_error', error: 'Could not store message' });
               try { ws.send(errPayload); } catch(e){}
-              continue;
+              return;
             }
           }
 
