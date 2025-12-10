@@ -39,7 +39,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-                if (message.type === 'chat') {
+        if (message.type === 'chat') {
           // persist the message
           const chatMessage = await storage.createChatMessage({
             senderId: message.senderId,
@@ -48,24 +48,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: 'text'
           });
 
-          // prepare payload once
           const payload = JSON.stringify({
             type: 'chat',
             message: chatMessage
           });
 
-          // send to receiver if online
+          // Collect unique WebSocket targets so we never send the same payload
+          // to the same socket twice.
+          const targets = new Set<WebSocket>();
+
           const receiverWs = connectedUsers.get(message.receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-            receiverWs.send(payload);
+            targets.add(receiverWs);
           }
 
-          // ALSO send to sender (ack) so their UI can show the saved message
           const senderWs = connectedUsers.get(message.senderId);
           if (senderWs && senderWs.readyState === WebSocket.OPEN) {
-            senderWs.send(payload);
+            targets.add(senderWs);
+          }
+
+          // Send once per unique socket
+          for (const target of targets) {
+            try {
+              target.send(payload);
+            } catch (err) {
+              console.warn("Failed to send chat payload to a client:", err);
+            }
           }
         }
+
 
         
         if (message.type === 'game_move') {
