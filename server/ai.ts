@@ -1,4 +1,5 @@
 import { generateFreeChatbotReply } from "./hf";
+import { generateFreeMemoryInsight } from "./hf";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -59,78 +60,10 @@ export async function generateMemoryInsight(memories: any[]): Promise<{
   suggestion: string;
 }> {
   try {
-    if (!memories.length) {
-      return {
-        insight: "No memories yet — your universe is waiting for its first star.",
-        suggestion: "Add a small memory from today to begin your constellation.",
-      };
-    }
-
-    const formatted = JSON.stringify(memories.slice(0, 5));
-
-    if (canUseGemini()) {
-      const prompt = `
-Analyze these user memories and respond ONLY in JSON:
-
-{
-  "insight": string,
-  "suggestion": string
-}
-
-Memories: ${formatted}
-      `.trim();
-
-      const result = await geminiModel!.generateContent(prompt);
-      const text = result.response.text() || "{}";
-
-      try {
-        const parsed = JSON.parse(text);
-        return {
-          insight:
-            parsed.insight ||
-            "Your memories cluster into a gentle constellation of experiences.",
-          suggestion:
-            parsed.suggestion ||
-            "Try adding a new memory about something that made you smile today.",
-        };
-      } catch {
-        return {
-          insight: "Your memories shimmer softly across your sky.",
-          suggestion:
-            "Share another special moment to brighten your constellation.",
-        };
-      }
-    }
-
-    // Fallback: OpenAI JSON response
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Analyze these memories and respond ONLY with JSON: { insight: string, suggestion: string }",
-        },
-        {
-          role: "user",
-          content: `Memories: ${formatted}`,
-        },
-      ],
-    });
-
-    const parsed = JSON.parse(completion.choices[0].message.content || "{}");
-
-    return {
-      insight:
-        parsed.insight ||
-        "Your memories cluster around a few bright emotional themes.",
-      suggestion:
-        parsed.suggestion ||
-        "Try adding a new memory about something small but meaningful today.",
-    };
+    // Use HF-based free insight generator
+    return await generateFreeMemoryInsight(memories);
   } catch (error) {
-    console.error("Memory insight error:", error);
+    console.error("Memory insight (HF) error:", error);
     return {
       insight: "Your memories glitter softly across time.",
       suggestion: "Share a new moment to brighten your constellation.",
