@@ -40,57 +40,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
                 if (message.type === 'chat') {
-          const { senderId, receiverId, content } = message;
+          // persist the message
+          const chatMessage = await storage.createChatMessage({
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            content: message.content,
+            type: 'text'
+          });
 
-          // look up the most recent messages between these two users
-          // (storage.getChatMessages returns messages ordered by created_at desc or asc depending on impl;
-          //  we fetch the latest few and inspect)
-          const recent = await storage.getChatMessages(senderId, receiverId);
-          const lastMessage = Array.isArray(recent) && recent.length ? recent[recent.length - 1] : null;
-
-          // If the last message was from the same sender and has identical content
-          // and was created very recently, treat it as a duplicate and reuse it.
-          let chatMessage;
-          const now = Date.now();
-          if (
-            lastMessage &&
-            lastMessage.sender_id === senderId &&
-            lastMessage.receiver_id === receiverId &&
-            lastMessage.content === content
-          ) {
-            // parse created_at to timestamp safely
-            const lastTs = new Date(lastMessage.created_at || lastMessage.createdAt || lastMessage.createdAt).getTime();
-            if (!Number.isNaN(lastTs) && (now - lastTs) < 10000) { // 10 seconds
-              chatMessage = lastMessage;
-            }
-          }
-
-          if (!chatMessage) {
-            // persist the message (only if not a recent duplicate)
-            chatMessage = await storage.createChatMessage({
-              senderId,
-              receiverId,
-              content,
-              type: 'text'
-            });
-          }
-
+          // prepare payload once
           const payload = JSON.stringify({
             type: 'chat',
             message: chatMessage
           });
 
-          // Send once per unique socket (dedupe sockets)
-          const targets = new Set<WebSocket>();
-          const receiverWs = connectedUsers.get(receiverId);
-          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) targets.add(receiverWs);
-          const senderWs = connectedUsers.get(senderId);
-          if (senderWs && senderWs.readyState === WebSocket.OPEN) targets.add(senderWs);
+          // send to receiver if online
+          const receiverWs = connectedUsers.get(message.receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(payload);
+          }
 
-          for (const target of targets) {
-            try { target.send(payload); } catch (err) { console.warn("Failed to send chat payload:", err); }
+          // ALSO send to sender (ack) so their UI can show the saved message
+          const senderWs = connectedUsers.get(message.senderId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(payload);
           }
         }
+
       
         if (message.type === 'game_move') {
           const game = await storage.getGame(message.gameId);
