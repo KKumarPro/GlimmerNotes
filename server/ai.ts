@@ -1,3 +1,4 @@
+import { generateLocalReply, generateLocalMemoryInsight } from "./ollama";
 import { generateFreeChatbotReply } from "./hf";
 import { generateFreeMemoryInsight } from "./hf";
 import OpenAI from "openai";
@@ -33,7 +34,6 @@ export async function generateChatbotResponse(
   context?: string
 ): Promise<string> {
   try {
-    // Build a simple prompt for the HF free model
     const prompt = `
 You are Glimmer, a short warm assistant inside the Glimmer app.
 Keep replies short, kind, and practical.
@@ -42,14 +42,15 @@ ${context ? `Context: ${context}` : ""}
 User: ${userMessage}
 `.trim();
 
-    // Use the free Hugging Face generator we added (no billing)
-    const reply = await generateFreeChatbotReply(prompt);
+    // Use local Ollama server (no billing)
+    const reply = await generateLocalReply(prompt, process.env.OLLAMA_MODEL || "phi3:mini", 120);
     return (reply && String(reply).trim()) || "✨ I’m listening — tell me more. ✨";
   } catch (error) {
-    console.error("Chatbot (HF) error:", error);
+    console.error("Chatbot (local) error:", error);
     return "✨ My cosmic link glitched. Please try again in a moment. ✨";
   }
 }
+
 
 
 /* ===========================================================
@@ -60,16 +61,16 @@ export async function generateMemoryInsight(memories: any[]): Promise<{
   suggestion: string;
 }> {
   try {
-    // Use HF-based free insight generator
-    return await generateFreeMemoryInsight(memories);
+    return await generateLocalMemoryInsight(memories, process.env.OLLAMA_MODEL || "phi3:mini");
   } catch (error) {
-    console.error("Memory insight (HF) error:", error);
+    console.error("Memory insight (local) error:", error);
     return {
       insight: "Your memories glitter softly across time.",
       suggestion: "Share a new moment to brighten your constellation.",
     };
   }
 }
+
 
 /* ===========================================================
    PET INTERACTION
