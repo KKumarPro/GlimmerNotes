@@ -57,9 +57,22 @@ User: ${userMessage}
       }
     );
 
-    const data = await res.json();
+    const text = await res.text();
 
-    return data.response || "✨ I’m listening. Tell me more. ✨";
+    if (!text) {
+      throw new Error("Empty response from Ollama");
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("Ollama returned non-JSON:", text);
+      throw e;
+    }
+
+return data.response || "✨ I’m listening. Tell me more. ✨";
+
   } catch (err) {
     console.error("Local Ollama chatbot error:", err);
     return "✨ The stars are quiet right now. Try again shortly. ✨";
