@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chatbot routes
   app.post("/api/chatbot", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-    
+      
     const { message, context } = req.body;
     const response = await generateChatbotResponse(message, context);
     res.json({ response });

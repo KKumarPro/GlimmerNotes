@@ -42,14 +42,30 @@ ${context ? `Context: ${context}` : ""}
 User: ${userMessage}
 `.trim();
 
-    // Use local Ollama server (no billing)
-    const reply = await generateLocalReply(prompt, process.env.OLLAMA_MODEL || "phi3:mini", 120);
-    return (reply && String(reply).trim()) || "✨ I’m listening — tell me more. ✨";
-  } catch (error) {
-    console.error("Chatbot (local) error:", error);
-    return "✨ My cosmic link glitched. Please try again in a moment. ✨";
+    const res = await fetch(
+      `${process.env.OLLAMA_BASE_URL}/api/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "phi3:mini",
+          prompt,
+          stream: false,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    return data.response || "✨ I’m listening. Tell me more. ✨";
+  } catch (err) {
+    console.error("Local Ollama chatbot error:", err);
+    return "✨ The stars are quiet right now. Try again shortly. ✨";
   }
 }
+
 
 
 
