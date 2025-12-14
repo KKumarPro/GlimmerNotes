@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -11,10 +10,6 @@ import {
 } from "./ai";
 import { z } from "zod";
 import { insertMemorySchema, insertFriendSchema, insertChatMessageSchema, insertGameSchema, insertActivitySchema } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
