@@ -81,6 +81,34 @@ export default function MemoryOrb() {
     },
   });
 
+  const deleteMemoryMutation = useMutation({
+  mutationFn: async (memoryId: string) => {
+    return apiRequest("DELETE", `/api/memories/${memoryId}`);
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/memories"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+    setSelectedMemory(null);
+    toast({
+      title: "Memory Deleted",
+      description: "That star has faded from your universe.",
+    });
+  },
+  onError: () => {
+    toast({
+      title: "Error",
+      description: "Failed to delete memory.",
+      variant: "destructive",
+    });
+  },
+});
+
+  const handleDeleteMemory = (memoryId: string) => {
+  if (!confirm("Delete this memory permanently?")) return;
+  deleteMemoryMutation.mutate(memoryId);
+};
+
+
   const form = useForm<CreateMemoryData>({
     resolver: zodResolver(createMemorySchema),
     defaultValues: {
@@ -426,6 +454,18 @@ export default function MemoryOrb() {
                 </div>
               </div>
             </DialogContent>
+            {selectedMemory && (
+            <Button
+              variant="destructive"
+              className="w-full mt-4"
+              onClick={() => handleDeleteMemory(selectedMemory.id)}
+              disabled={deleteMemoryMutation.isPending}
+              data-testid="button-delete-memory"
+              >
+              {deleteMemoryMutation.isPending ? "Deleting..." : "Delete Memory"}
+            </Button>
+)}
+
           </Dialog>
         </div>
       </div>

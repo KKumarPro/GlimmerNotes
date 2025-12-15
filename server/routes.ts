@@ -125,6 +125,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(insights);
   });
 
+  // Delete memory
+  app.delete("/api/memories/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const memoryId = req.params.id;
+
+  // Fetch memory first
+  const memory = await storage.getMemoryById(memoryId);
+
+  if (!memory) {
+    return res.status(404).json({ error: "Memory not found" });
+  }
+
+  // Ownership check (CRITICAL)
+  if (memory.userId !== req.user!.id) {
+    return res.status(403).json({ error: "You cannot delete this memory" });
+  }
+
+  // Delete memory
+  await storage.deleteMemory(memoryId);
+
+  // Optional: log activity
+  await storage.createActivity({
+    userId: req.user!.id,
+    type: "memory_deleted",
+    description: `Deleted a memory: ${memory.title}`,
+    data: { memoryId }
+  });
+
+  res.json({ success: true });
+});
+
+
   // Friends routes
   app.get("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
