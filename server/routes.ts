@@ -127,8 +127,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   
 
-  const memoryId = req.params.id;
-
   // Fetch memory first
   const memory = await storage.getMemoryById(memoryId);
 
@@ -143,10 +141,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Delete memory
   await storage.deleteMemory(memoryId);
+  // Delete memory
   app.delete("/api/memories/:id", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Unauthorized" });
   }
+  const memoryId = req.params.id;
 
   // Optional: log activity
   await storage.createActivity({
