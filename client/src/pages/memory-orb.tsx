@@ -82,16 +82,16 @@ export default function MemoryOrb() {
   });
 
   const deleteMemoryMutation = useMutation({
-  mutationFn: async (memoryId: string) => {
-    return apiRequest("DELETE", `/api/memories/${memoryId}`);
+  mutationFn: async (id: string) => {
+    return apiRequest("DELETE", `/api/memories/${id}`);
   },
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ["/api/memories"] });
     queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     setSelectedMemory(null);
     toast({
-      title: "Memory Deleted",
-      description: "That star has faded from your universe.",
+      title: "Memory deleted",
+      description: "The memory has been removed permanently.",
     });
   },
   onError: () => {
@@ -102,6 +102,7 @@ export default function MemoryOrb() {
     });
   },
 });
+
 
   const handleDeleteMemory = (memoryId: string) => {
   if (!confirm("Delete this memory permanently?")) return;
@@ -427,46 +428,56 @@ export default function MemoryOrb() {
           )}
 
           <Dialog open={!!selectedMemory} onOpenChange={() => setSelectedMemory(null)}>
-            <DialogContent className="glassmorphism border-border/50 max-w-lg" data-testid="dialog-memory-detail">
-              <DialogHeader>
-                <DialogTitle className="text-foreground flex items-center">
-                  {selectedMemory?.type === "photo" ? (
-                    <ImageIcon className="w-5 h-5 mr-2 text-primary" />
-                  ) : (
-                    <Star className="w-5 h-5 mr-2 text-primary" />
-                  )}
-                  {selectedMemory?.title}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {selectedMemory && extractPhotoFromContent(selectedMemory.content) && (
-                  <img 
-                    src={extractPhotoFromContent(selectedMemory.content)!} 
-                    alt={selectedMemory.title} 
-                    className="w-full rounded-lg"
-                  />
-                )}
-                <p className="text-foreground whitespace-pre-wrap">
-                  {selectedMemory && getTextContent(selectedMemory.content)}
-                </p>
-                <div className="text-sm text-muted-foreground">
-                  Created: {selectedMemory?.createdAt && new Date(selectedMemory.createdAt).toLocaleString()}
-                </div>
-              </div>
-            </DialogContent>
-            {selectedMemory && (
-            <Button
-              variant="destructive"
-              className="w-full mt-4"
-              onClick={() => handleDeleteMemory(selectedMemory.id)}
-              disabled={deleteMemoryMutation.isPending}
-              data-testid="button-delete-memory"
-              >
-              {deleteMemoryMutation.isPending ? "Deleting..." : "Delete Memory"}
-            </Button>
-)}
+  <DialogContent className="glassmorphism border-border/50 max-w-lg">
+    <DialogHeader>
+      <DialogTitle className="text-foreground flex items-center justify-between">
+        <span className="flex items-center">
+          {selectedMemory?.type === "photo" ? (
+            <ImageIcon className="w-5 h-5 mr-2 text-primary" />
+          ) : (
+            <Star className="w-5 h-5 mr-2 text-primary" />
+          )}
+          {selectedMemory?.title}
+        </span>
+      </DialogTitle>
+    </DialogHeader>
 
-          </Dialog>
+    <div className="space-y-4">
+      {selectedMemory && extractPhotoFromContent(selectedMemory.content) && (
+        <img
+          src={extractPhotoFromContent(selectedMemory.content)!}
+          alt={selectedMemory.title}
+          className="w-full rounded-lg"
+        />
+      )}
+
+      <p className="text-foreground whitespace-pre-wrap">
+        {selectedMemory && getTextContent(selectedMemory.content)}
+      </p>
+
+      <div className="text-sm text-muted-foreground">
+        Created:{" "}
+        {selectedMemory?.createdAt &&
+          new Date(selectedMemory.createdAt).toLocaleString()}
+      </div>
+    </div>
+
+    {/* 🔴 DELETE BUTTON — NOW VISIBLE & CORRECT */}
+    <div className="pt-4 border-t border-border flex justify-end">
+      <Button
+        variant="destructive"
+        onClick={() => {
+          if (!selectedMemory) return;
+          if (!confirm("Delete this memory permanently?")) return;
+          deleteMemoryMutation.mutate(selectedMemory.id);
+        }}
+      >
+        Delete Memory
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
         </div>
       </div>
     </Layout>

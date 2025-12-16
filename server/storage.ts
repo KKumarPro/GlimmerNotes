@@ -18,6 +18,7 @@ export interface IStorage {
   createMemory(memory: InsertMemory): Promise<Memory>;
   getMemoriesByUser(userId: string): Promise<Memory[]>;
   getMemory(id: string): Promise<Memory | undefined>;
+  // Overloaded signatures for deleteMemory
   deleteMemory(id: string): Promise<void>;
   deleteMemory(id: string, userId: string): Promise<boolean>;
 
@@ -56,6 +57,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: string): Promise<User | undefined> {
+    // Ensure we are selecting safely
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
@@ -76,6 +78,7 @@ export class DatabaseStorage implements IStorage {
       displayName: insertUser.displayName || null,
     }).returning();
 
+    // Create default pet for new user
     await this.createPet({
       userId: user.id,
       name: "Stardust",
@@ -111,22 +114,30 @@ export class DatabaseStorage implements IStorage {
     return memory;
   }
 
-  async deleteMemory(id: string, userId: string): Promise<boolean> {
-  const memory = await this.getMemory(id);
-  if (!memory || memory.userId !== userId) return false;
+  // Implementation compatible with both overloads
+  async deleteMemory(id: string): Promise<void>;
+  async deleteMemory(id: string, userId: string): Promise<boolean>;
+  async deleteMemory(id: string, userId?: string): Promise<void | boolean> {
+    if (userId) {
+      // Logic for delete with ownership check (returns boolean)
+      const memory = await this.getMemory(id);
+      if (!memory || memory.userId !== userId) return false;
 
-  await db.delete(memories).where(eq(memories.id, id));
+      await db.delete(memories).where(eq(memories.id, id));
 
-  const user = await this.getUser(userId);
-  if (user) {
-    await this.updateUser(userId, {
-      memoriesCount: Math.max((user.memoriesCount || 1) - 1, 0),
-    });
+      const user = await this.getUser(userId);
+      if (user) {
+        await this.updateUser(userId, {
+          memoriesCount: Math.max((user.memoriesCount || 1) - 1, 0),
+        });
+      }
+      return true;
+    } else {
+      // Logic for unconditional delete (returns void)
+      await db.delete(memories).where(eq(memories.id, id));
+      return;
+    }
   }
-
-  return true;
-}
-
 
   async getMemoriesByUser(userId: string): Promise<Memory[]> {
     return db.select().from(memories).where(eq(memories.userId, userId)).orderBy(desc(memories.createdAt));
