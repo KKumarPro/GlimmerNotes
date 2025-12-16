@@ -19,6 +19,7 @@ export interface IStorage {
   getMemoriesByUser(userId: string): Promise<Memory[]>;
   getMemory(id: string): Promise<Memory | undefined>;
   deleteMemory(id: string): Promise<void>;
+  deleteMemory(id: string, userId: string): Promise<boolean>;
 
   createFriend(friend: InsertFriend): Promise<Friend>;
   getFriendsByUser(userId: string): Promise<Friend[]>;
@@ -110,21 +111,22 @@ export class DatabaseStorage implements IStorage {
     return memory;
   }
 
-  async deleteMemory(id: string): Promise<void> {
+  async deleteMemory(id: string, userId: string): Promise<boolean> {
   const memory = await this.getMemory(id);
-
-  if (!memory) return;
+  if (!memory || memory.userId !== userId) return false;
 
   await db.delete(memories).where(eq(memories.id, id));
 
-  // Decrement user's memory count safely
-  const user = await this.getUser(memory.userId);
+  const user = await this.getUser(userId);
   if (user) {
-    await this.updateUser(user.id, {
+    await this.updateUser(userId, {
       memoriesCount: Math.max((user.memoriesCount || 1) - 1, 0),
     });
   }
+
+  return true;
 }
+
 
   async getMemoriesByUser(userId: string): Promise<Memory[]> {
     return db.select().from(memories).where(eq(memories.userId, userId)).orderBy(desc(memories.createdAt));
