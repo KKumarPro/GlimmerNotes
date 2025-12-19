@@ -326,6 +326,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ pet: updatedPet, response });
   });
 
+  app.post("/api/pet/co-care", async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+
+  const { friendId } = req.body;
+  const pet = await storage.getPetByUser(req.user!.id);
+  if (!pet) return res.status(404).json({ error: "Pet not found" });
+
+  // ensure friend exists AND is accepted
+  const friendship = await storage.getFriendship(req.user!.id, friendId);
+  if (!friendship || friendship.status !== "accepted") {
+    return res.status(400).json({ error: "Not a valid friend" });
+  }
+
+  await storage.updatePet(pet.id, { coCarePartnerId: friendId });
+
+  res.json({ success: true });
+});
+
+
   // Chat routes
   app.get("/api/chat/:friendId", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });

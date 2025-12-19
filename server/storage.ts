@@ -30,6 +30,7 @@ export interface IStorage {
   getPetByUser(userId: string): Promise<Pet | undefined>;
   createPet(pet: InsertPet): Promise<Pet>;
   updatePet(id: string, updates: Partial<Pet>): Promise<Pet | undefined>;
+  coCarePartnerId?: string | null;
   
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatMessages(userId1: string, userId2: string): Promise<ChatMessage[]>;

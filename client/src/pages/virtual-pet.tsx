@@ -17,7 +17,6 @@ export default function VirtualPet() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [friendUsername, setFriendUsername] = useState("");
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["/api/pet"],
@@ -47,27 +46,31 @@ export default function VirtualPet() {
     },
   });
 
-  const inviteFriendMutation = useMutation({
-    mutationFn: async (username: string) => {
-      const response = await apiRequest("POST", "/api/friends", { friendId: username });
-      return response.json();
-    },
-    onSuccess: () => {
-      setInviteDialogOpen(false);
-      setFriendUsername("");
-      toast({
-        title: "Invitation Sent",
-        description: "Co-care invitation sent to your friend!",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send invitation. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  const { data: friends = [] } = useQuery<any[]>({
+  queryKey: ["/api/friends"],
+});
+
+const inviteCoCareMutation = useMutation({
+  mutationFn: async (friendId: string) => {
+    const response = await apiRequest("POST", "/api/pet/co-care", { friendId });
+    return response.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
+    setInviteDialogOpen(false);
+    toast({
+      title: "Co-Care Partner Added",
+      description: "Your friend is now helping take care of your pet 🐾",
+    });
+  },
+  onError: () => {
+    toast({
+      title: "Error",
+      description: "Failed to add co-care partner",
+      variant: "destructive",
+    });
+  },
+});
 
   const handlePetAction = (action: string) => {
     petActionMutation.mutate(action);
@@ -311,22 +314,24 @@ export default function VirtualPet() {
                         <DialogHeader>
                           <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-4">
-                          <Input
-                            placeholder="Enter friend's username..."
-                            value={friendUsername}
-                            onChange={(e) => setFriendUsername(e.target.value)}
-                            className="bg-input border-border text-foreground"
-                            data-testid="input-friend-username"
-                          />
-                          <Button
-                            onClick={handleInviteFriend}
-                            disabled={inviteFriendMutation.isPending || !friendUsername.trim()}
-                            className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
-                            data-testid="button-send-invite"
-                          >
-                            {inviteFriendMutation.isPending ? "Sending..." : "Send Invitation"}
-                          </Button>
+                        <div className="space-y-3">
+                          {friends
+                            .filter(f => f.status === "accepted")
+                            .map(f => {
+                              const friend =
+                                f.userId === pet.userId ? f.friend : f.user;
+
+                              return (
+                                <Button
+                                  key={f.id}
+                                  variant="outline"
+                                  className="w-full justify-start"
+                                  onClick={() => inviteCoCareMutation.mutate(friend.id)}
+                                >
+                                  {friend.displayName || friend.username}
+                                </Button>
+                              );
+                            })}
                         </div>
                       </DialogContent>
                     </Dialog>
