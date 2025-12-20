@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Star, Users, Heart, Sparkles } from "lucide-react";
-import cosmicBg from "@assets/Untitled_1759075376180.png";
+import cosmicBg from "@assets/Untitled_1766157378996.png";
 import type { User, Activity } from "@shared/schema";
 
 interface DashboardData {
@@ -21,7 +21,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div 
+      <div
         className="min-h-screen flex items-center justify-center"
         style={{
           backgroundImage: `url(${cosmicBg})`,
@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div 
+      <div
         className="py-12 min-h-screen"
         style={{
           backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.5)), url(${cosmicBg})`,

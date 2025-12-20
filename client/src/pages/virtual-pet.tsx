@@ -47,30 +47,30 @@ export default function VirtualPet() {
   });
 
   const { data: friends = [] } = useQuery<any[]>({
-  queryKey: ["/api/friends"],
-});
+    queryKey: ["/api/friends"],
+  });
 
-const inviteCoCareMutation = useMutation({
-  mutationFn: async (friendId: string) => {
-    const response = await apiRequest("POST", "/api/pet/co-care", { friendId });
-    return response.json();
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
-    setInviteDialogOpen(false);
-    toast({
-      title: "Co-Care Partner Added",
-      description: "Your friend is now helping take care of your pet 🐾",
-    });
-  },
-  onError: () => {
-    toast({
-      title: "Error",
-      description: "Failed to add co-care partner",
-      variant: "destructive",
-    });
-  },
-});
+  const inviteCoCareMutation = useMutation({
+    mutationFn: async (friendId: string) => {
+      const response = await apiRequest("POST", "/api/pet/co-care", { friendId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
+      setInviteDialogOpen(false);
+      toast({
+        title: "Co-Care Partner Added",
+        description: "Your friend is now helping take care of your pet 🐾",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add co-care partner",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handlePetAction = (action: string) => {
     petActionMutation.mutate(action);
@@ -82,11 +82,7 @@ const inviteCoCareMutation = useMutation({
     handlePetAction(randomAction);
   };
 
-  const handleInviteFriend = () => {
-    if (friendUsername.trim()) {
-      inviteFriendMutation.mutate(friendUsername.trim());
-    }
-  };
+  // Removed broken and unused handleInviteFriend function here
 
   if (isLoading) {
     return (
@@ -118,6 +114,16 @@ const inviteCoCareMutation = useMutation({
   const energy = pet.energy ?? 50;
   const bond = pet.bond ?? 30;
 
+  // Create a safe object for the 3D component to ensure no nulls are passed
+  const sanitizedPet = {
+    ...pet,
+    level: pet.level ?? 1,
+    happiness: happiness,
+    energy: energy,
+    bond: bond,
+    mood: pet.mood ?? "Neutral"
+  };
+
   return (
     <Layout>
       <div className="py-12">
@@ -140,7 +146,8 @@ const inviteCoCareMutation = useMutation({
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
+                  {/* Updated to use sanitizedPet to fix type error */}
+                  <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
