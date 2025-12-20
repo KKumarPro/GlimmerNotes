@@ -327,22 +327,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/pet/co-care", async (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   const { friendId } = req.body;
-  const pet = await storage.getPetByUser(req.user!.id);
-  if (!pet) return res.status(404).json({ error: "Pet not found" });
+  const userId = req.user!.id;
 
-  // ensure friend exists AND is accepted
-  const friendship = await storage.getFriendship(req.user!.id, friendId);
+  // Get pet
+  const pet = await storage.getPetByUser(userId);
+  if (!pet) {
+    return res.status(404).json({ error: "Pet not found" });
+  }
+
+  // Only one co-care partner allowed
+  if (pet.coCarerId) {
+    return res.status(400).json({ error: "Co-care partner already assigned" });
+  }
+
+  // Check friendship in BOTH directions
+  const friendship = await storage.getFriendship(userId, friendId);
+
   if (!friendship || friendship.status !== "accepted") {
     return res.status(400).json({ error: "Not a valid friend" });
   }
 
-  await storage.updatePet(pet.id, { coCarePartnerId: friendId });
+  // Assign co-care partner
+  const updatedPet = await storage.updatePet(pet.id, {
+    coCarerId: friendId,
+  });
 
-  res.json({ success: true });
+  // Log activity (optional but good)
+  await storage.createActivity({
+    userId,
+    type: "co_care_added",
+    description: "Added a co-care partner",
+    data: { friendId },
+  });
+
+  res.json(updatedPet);
 });
+
 
 
   // Chat routes
