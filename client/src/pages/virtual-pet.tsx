@@ -17,6 +17,7 @@ export default function VirtualPet() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [friendUsername, setFriendUsername] = useState("");
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["/api/pet"],
@@ -46,27 +47,23 @@ export default function VirtualPet() {
     },
   });
 
-  const { data: friends = [] } = useQuery<any[]>({
-    queryKey: ["/api/friends"],
-  });
-
-  const inviteCoCareMutation = useMutation({
-    mutationFn: async (friendId: string) => {
-      const response = await apiRequest("POST", "/api/pet/co-care", { friendId });
+  const inviteFriendMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const response = await apiRequest("POST", "/api/pet/co-care", { friendId: username });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
       setInviteDialogOpen(false);
+      setFriendUsername("");
       toast({
-        title: "Co-Care Partner Added",
-        description: "Your friend is now helping take care of your pet 🐾",
+        title: "Invitation Sent",
+        description: "Co-care invitation sent to your friend!",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to add co-care partner",
+        description: "Failed to send invitation. Please try again.",
         variant: "destructive",
       });
     },
@@ -82,7 +79,11 @@ export default function VirtualPet() {
     handlePetAction(randomAction);
   };
 
-  // Removed broken and unused handleInviteFriend function here
+  const handleInviteFriend = () => {
+    if (friendUsername.trim()) {
+      inviteFriendMutation.mutate(friendUsername.trim());
+    }
+  };
 
   if (isLoading) {
     return (
@@ -114,16 +115,6 @@ export default function VirtualPet() {
   const energy = pet.energy ?? 50;
   const bond = pet.bond ?? 30;
 
-  // Create a safe object for the 3D component to ensure no nulls are passed
-  const sanitizedPet = {
-    ...pet,
-    level: pet.level ?? 1,
-    happiness: happiness,
-    energy: energy,
-    bond: bond,
-    mood: pet.mood ?? "Neutral"
-  };
-
   return (
     <Layout>
       <div className="py-12">
@@ -146,8 +137,7 @@ export default function VirtualPet() {
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  {/* Updated to use sanitizedPet to fix type error */}
-                  <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
+                  <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -321,24 +311,22 @@ export default function VirtualPet() {
                         <DialogHeader>
                           <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-3">
-                          {friends
-                            .filter(f => f.status === "accepted")
-                            .map(f => {
-                              const friend =
-                                f.userId === pet.userId ? f.friend : f.user;
-
-                              return (
-                                <Button
-                                  key={f.id}
-                                  variant="outline"
-                                  className="w-full justify-start"
-                                  onClick={() => inviteCoCareMutation.mutate(friend.id)}
-                                >
-                                  {friend.displayName || friend.username}
-                                </Button>
-                              );
-                            })}
+                        <div className="space-y-4">
+                          <Input
+                            placeholder="Enter friend's username..."
+                            value={friendUsername}
+                            onChange={(e) => setFriendUsername(e.target.value)}
+                            className="bg-input border-border text-foreground"
+                            data-testid="input-friend-username"
+                          />
+                          <Button
+                            onClick={handleInviteFriend}
+                            disabled={inviteFriendMutation.isPending || !friendUsername.trim()}
+                            className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+                            data-testid="button-send-invite"
+                          >
+                            {inviteFriendMutation.isPending ? "Sending..." : "Send Invitation"}
+                          </Button>
                         </div>
                       </DialogContent>
                     </Dialog>
