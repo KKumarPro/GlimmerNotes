@@ -125,6 +125,7 @@ export default function Chat() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"
@@ -144,7 +145,7 @@ export default function Chat() {
                 transition={{ duration: 0.6 }}
               >
 
-            <Snowfall color="#82C3D9"/>
+            
             
                 <Card className="glassmorphism h-96" data-testid="card-chat-list">
                   <CardHeader>
