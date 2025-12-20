@@ -12,12 +12,19 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
 import type { Pet } from "@shared/schema";
+import type { Friend } from "@shared/schema";
 
 export default function VirtualPet() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  // Fixed: Added missing state variable
   const [friendUsername, setFriendUsername] = useState("");
+
+  // Fixed: Moved useQuery inside the component (it cannot be at the top level)
+  const { data: friends = [] } = useQuery<Friend[]>({
+    queryKey: ["/api/friends"],
+  });
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["/api/pet"],
@@ -48,13 +55,17 @@ export default function VirtualPet() {
   });
 
   const inviteFriendMutation = useMutation({
-    mutationFn: async (username: string) => {
-      const response = await apiRequest("POST", "/api/pet/co-care", { friendId: username });
+    mutationFn: async (friendId: string) => {
+      const response = await apiRequest(
+        "POST",
+        "/api/pet/co-care",
+        { friendId }
+      );
       return response.json();
     },
     onSuccess: () => {
       setInviteDialogOpen(false);
-      setFriendUsername("");
+      setFriendUsername(""); // Fixed: Now works because state exists
       toast({
         title: "Invitation Sent",
         description: "Co-care invitation sent to your friend!",
@@ -80,8 +91,8 @@ export default function VirtualPet() {
   };
 
   const handleInviteFriend = () => {
-    if (friendUsername.trim()) {
-      inviteFriendMutation.mutate(friendUsername.trim());
+    if (friendUsername) {
+      inviteFriendMutation.mutate(friendUsername);
     }
   };
 
@@ -115,6 +126,16 @@ export default function VirtualPet() {
   const energy = pet.energy ?? 50;
   const bond = pet.bond ?? 30;
 
+  // Fixed: Create a sanitized object to ensure numbers are passed to VirtualPet3D
+  const sanitizedPet = {
+    ...pet,
+    level: pet.level ?? 1,
+    happiness: happiness,
+    energy: energy,
+    bond: bond,
+    mood: pet.mood ?? "Neutral"
+  };
+
   return (
     <Layout>
       <div className="py-12">
@@ -137,7 +158,8 @@ export default function VirtualPet() {
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
+                  {/* Fixed: Use sanitizedPet here */}
+                  <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -312,13 +334,25 @@ export default function VirtualPet() {
                           <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          <Input
-                            placeholder="Enter friend's username..."
-                            value={friendUsername}
-                            onChange={(e) => setFriendUsername(e.target.value)}
-                            className="bg-input border-border text-foreground"
-                            data-testid="input-friend-username"
-                          />
+                          <select
+                              className="w-full p-2 rounded-md bg-input border border-border text-foreground"
+                              onChange={(e) => setFriendUsername(e.target.value)}
+                            >
+                              <option value="">Select a friend</option>
+                              {friends
+                                .filter(f => f.status === "accepted")
+                                .map(f => {
+                                  const id =
+                                    f.userId === pet.userId ? f.friendId : f.userId;
+
+                                  return (
+                                    <option key={f.id} value={id}>
+                                      {id}
+                                    </option>
+                                  );
+                                })}
+                          </select>
+
                           <Button
                             onClick={handleInviteFriend}
                             disabled={inviteFriendMutation.isPending || !friendUsername.trim()}
