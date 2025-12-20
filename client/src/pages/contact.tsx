@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, MessageSquare, Sparkles, Send, MapPin, Clock } from "lucide-react";
+import Snowfall from 'react-snowfall';
 
 export default function Contact() {
   const { toast } = useToast();
@@ -104,6 +105,9 @@ export default function Contact() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
             >
+
+            <Snowfall color="#82C3D9"/>
+            
               <Card className="glassmorphism" data-testid="contact-form-card">
                 <CardHeader>
                   <CardTitle className="text-xl text-foreground">Send us a Message</CardTitle>

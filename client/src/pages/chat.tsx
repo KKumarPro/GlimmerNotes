@@ -11,6 +11,7 @@ import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, Send, Users } from "lucide-react";
 import type { Friend, ChatMessage } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 interface FriendWithDetails extends Friend {
   friend?: {
@@ -123,6 +124,9 @@ export default function Chat() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
               >
+
+            <Snowfall color="#82C3D9"/>
+            
                 <Card className="glassmorphism h-96" data-testid="card-chat-list">
                   <CardHeader>
                     <CardTitle className="text-lg text-foreground flex items-center">

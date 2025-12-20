@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
 import type { Pet } from "@shared/schema";
 import type { Friend } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 export default function VirtualPet() {
   const { toast } = useToast();
@@ -139,6 +140,7 @@ export default function VirtualPet() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"

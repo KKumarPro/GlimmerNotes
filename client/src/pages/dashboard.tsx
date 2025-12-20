@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Star, Users, Heart, Sparkles } from "lucide-react";
 import cosmicBg from "@assets/Untitled_1766157378996.png";
 import type { User, Activity } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 interface DashboardData {
   user: User;
@@ -55,6 +56,9 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
+          
+          <Snowfall color="#82C3D9"/>
+          
             <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
               Welcome back,{" "}
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent" data-testid="text-username">
