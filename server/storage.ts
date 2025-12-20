@@ -233,6 +233,22 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(chatMessages).where(eq(chatMessages.roomId, roomId)).orderBy(chatMessages.createdAt);
   }
 
+  async getLastMessageBetweenUsers(userId: string, friendId: string) {
+  const [msg] = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      or(
+        and(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, friendId)),
+        and(eq(chatMessages.senderId, friendId), eq(chatMessages.receiverId, userId))
+      )
+    )
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(1);
+
+    return msg || null;
+  }
+
   async createGame(insertGame: InsertGame): Promise<Game> {
     const [game] = await db.insert(games).values({
       ...insertGame,

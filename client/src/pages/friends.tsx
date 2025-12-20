@@ -32,6 +32,7 @@ export default function Friends() {
   });
 
   const friends = friendsData as FriendWithDetails[];
+  
 
   const addFriendMutation = useMutation({
     mutationFn: async (username: string) => {

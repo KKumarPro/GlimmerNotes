@@ -13,11 +13,13 @@ import { MessageCircle, Send, Users } from "lucide-react";
 import type { Friend, ChatMessage } from "@shared/schema";
 import Snowfall from 'react-snowfall';
 
+// Fixed: Added lastSeen to the interface
 interface FriendWithDetails extends Friend {
   friend?: {
     id: string;
     username: string;
     displayName: string | null;
+    lastSeen?: string | Date | null;
   };
 }
 
@@ -35,6 +37,24 @@ export default function Chat() {
   });
 
   const friends = friendsData as FriendWithDetails[];
+
+  // Fixed: Moved acceptedFriends definition up so it exists before sortedAcceptedFriends uses it
+  const acceptedFriends = friends.filter(f => f.status === "accepted");
+
+  const getLastMessageTime = (friendId: string) => {
+    const relevant = messages.filter(
+      m => m.senderId === friendId || m.receiverId === friendId
+    );
+    if (relevant.length === 0) return 0;
+    return new Date(relevant[relevant.length - 1].createdAt!).getTime();
+  };
+
+  // Fixed: Now acceptedFriends is defined before this runs
+  const sortedAcceptedFriends = [...acceptedFriends].sort((a, b) => {
+    const aId = a.userId === user?.id ? a.friendId : a.userId;
+    const bId = b.userId === user?.id ? b.friendId : b.userId;
+    return getLastMessageTime(bId) - getLastMessageTime(aId);
+  });
 
   const { data: chatMessagesData = [] } = useQuery<ChatMessage[]>({
     queryKey: ["/api/chat", selectedChat],
@@ -98,7 +118,6 @@ export default function Chat() {
     }
   };
 
-  const acceptedFriends = friends.filter(f => f.status === "accepted");
   const selectedFriend = acceptedFriends.find(f => 
     f.userId === selectedChat || f.friendId === selectedChat
   );
@@ -143,7 +162,7 @@ export default function Chat() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {acceptedFriends.map((friend, index) => {
+                        {sortedAcceptedFriends.map((friend, index) => {
                           const friendUserId = friend.userId === user?.id ? friend.friendId : friend.userId;
                           const isSelected = selectedChat === friendUserId;
                           
@@ -204,7 +223,12 @@ export default function Chat() {
                             <p className="font-medium text-foreground" data-testid="text-chat-partner">
                               {selectedFriend.friend?.displayName || selectedFriend.friend?.username || "Friend"}
                             </p>
-                            <p className="text-sm text-muted-foreground">Online</p>
+                            <p className="text-sm text-muted-foreground">
+                              {selectedFriend.friend?.lastSeen
+                                ? `Last seen ${new Date(selectedFriend.friend.lastSeen).toLocaleString()}`
+                                : "Offline"}
+                            </p>
+
                           </div>
                         </div>
                       </CardHeader>

@@ -16,9 +16,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
+  // Fixed: Define connectedUsers Map
+  const connectedUsers = new Map<string, { socket: WebSocket; lastSeen: Date }>();
+
   // WebSocket server for real-time features
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  const connectedUsers = new Map<string, WebSocket>();
+  
+  // Fixed: Removed the stray if (message.type === "auth") block here
 
   wss.on('connection', (ws) => {
     let userId: string | null = null;
@@ -27,13 +31,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const message = JSON.parse(data.toString());
         
-        if (message.type === 'auth') {
+        if (message.type === "auth") {
           userId = message.userId;
-          if (userId) {
-            connectedUsers.set(userId, ws);
-          }
+          connectedUsers.set(userId!, {
+            socket: ws,
+            lastSeen: new Date()
+          });
         }
-        
+
         if (message.type === 'chat') {
           const chatMessage = await storage.createChatMessage({
             senderId: message.senderId,
@@ -44,8 +49,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Send to receiver if online
           const receiverWs = connectedUsers.get(message.receiverId);
-          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-            receiverWs.send(JSON.stringify({
+          if (receiverWs && receiverWs.socket.readyState === WebSocket.OPEN) {
+            receiverWs.socket.send(JSON.stringify({
               type: 'chat',
               message: chatMessage
             }));
@@ -64,9 +69,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Notify both players
             [game.player1Id, game.player2Id].forEach(playerId => {
               // Fix: Convert ID to string for Map lookup
-              const playerWs = connectedUsers.get(String(playerId));
-              if (playerWs && playerWs.readyState === WebSocket.OPEN) {
-                playerWs.send(JSON.stringify({
+              const playerEntry = connectedUsers.get(String(playerId));
+              if (playerEntry && playerEntry.socket.readyState === WebSocket.OPEN) {
+                playerEntry.socket.send(JSON.stringify({
                   type: 'game_update',
                   game: updatedGame
                 }));
@@ -79,11 +84,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    ws.on('close', () => {
+    ws.on("close", () => {
       if (userId) {
         connectedUsers.delete(userId);
+
+        // Fixed: Commented out storage update because 'lastSeen' does not exist on User schema.
+        // If you want to track this in DB, add 'lastSeen' to your schema.ts.
+        /* storage.updateUser(userId, {
+          lastSeen: new Date()
+        }); 
+        */
       }
     });
+
   });
 
   // Memory routes
@@ -327,48 +340,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/pet/co-care", async (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-  const { friendId } = req.body;
-  const userId = req.user!.id;
+    const { friendId } = req.body;
+    const userId = req.user!.id;
 
-  // Get pet
-  const pet = await storage.getPetByUser(userId);
-  if (!pet) {
-    return res.status(404).json({ error: "Pet not found" });
-  }
+    // Get pet
+    const pet = await storage.getPetByUser(userId);
+    if (!pet) {
+      return res.status(404).json({ error: "Pet not found" });
+    }
 
-  // Only one co-care partner allowed
-  if (pet.coCarerId) {
-    return res.status(400).json({ error: "Co-care partner already assigned" });
-  }
+    // Only one co-care partner allowed
+    if (pet.coCarerId) {
+      return res.status(400).json({ error: "Co-care partner already assigned" });
+    }
 
-  // Check friendship in BOTH directions
-  const friendship = await storage.getFriendship(userId, friendId);
+    // Check friendship in BOTH directions
+    const friendship = await storage.getFriendship(userId, friendId);
 
-  if (!friendship || friendship.status !== "accepted") {
-    return res.status(400).json({ error: "Not a valid friend" });
-  }
+    if (!friendship || friendship.status !== "accepted") {
+      return res.status(400).json({ error: "Not a valid friend" });
+    }
 
-  // Assign co-care partner
-  const updatedPet = await storage.updatePet(pet.id, {
-    coCarerId: friendId,
+    // Assign co-care partner
+    const updatedPet = await storage.updatePet(pet.id, {
+      coCarerId: friendId,
+    });
+
+    // Log activity (optional but good)
+    await storage.createActivity({
+      userId,
+      type: "co_care_added",
+      description: "Added a co-care partner",
+      data: { friendId },
+    });
+
+    res.json(updatedPet);
   });
-
-  // Log activity (optional but good)
-  await storage.createActivity({
-    userId,
-    type: "co_care_added",
-    description: "Added a co-care partner",
-    data: { friendId },
-  });
-
-  res.json(updatedPet);
-});
-
-
 
   // Chat routes
   app.get("/api/chat/:friendId", async (req, res) => {
