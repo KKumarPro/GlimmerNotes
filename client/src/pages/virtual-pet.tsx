@@ -21,7 +21,7 @@ export default function VirtualPet() {
   // Fixed: Added missing state variable
   const [friendUsername, setFriendUsername] = useState("");
 
-  // Fixed: Moved useQuery inside the component (it cannot be at the top level)
+  // Fixed: Moved useQuery inside the component
   const { data: friends = [] } = useQuery<Friend[]>({
     queryKey: ["/api/friends"],
   });
@@ -64,11 +64,11 @@ export default function VirtualPet() {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
       setInviteDialogOpen(false);
-      setFriendUsername(""); // Fixed: Now works because state exists
       toast({
-        title: "Invitation Sent",
-        description: "Co-care invitation sent to your friend!",
+        title: "Co-care partner added",
+        description: "Your friend is now helping take care of your pet 🐾",
       });
     },
     onError: () => {
@@ -158,7 +158,6 @@ export default function VirtualPet() {
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  {/* Fixed: Use sanitizedPet here */}
                   <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
@@ -306,9 +305,14 @@ export default function VirtualPet() {
                       <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent to-primary"></div>
                         <div>
-                          <p className="text-foreground font-medium" data-testid="text-partner-name">
-                            Co-Care Partner
+                          <p className="text-foreground font-medium">
+                            {/* Fixed: Use type assertion to handle potential 'friend' property safely */}
+                            {(() => {
+                              const coCarer = friends.find(f => f.userId === pet.coCarerId || f.friendId === pet.coCarerId);
+                              return (coCarer as any)?.friend?.username ?? (coCarer as any)?.user?.username ?? "Co-Care Partner";
+                            })()}
                           </p>
+
                           <p className="text-sm text-muted-foreground">Best Friend</p>
                         </div>
                       </div>
@@ -335,23 +339,29 @@ export default function VirtualPet() {
                         </DialogHeader>
                         <div className="space-y-4">
                           <select
-                              className="w-full p-2 rounded-md bg-input border border-border text-foreground"
-                              onChange={(e) => setFriendUsername(e.target.value)}
-                            >
-                              <option value="">Select a friend</option>
-                              {friends
-                                .filter(f => f.status === "accepted")
-                                .map(f => {
-                                  const id =
-                                    f.userId === pet.userId ? f.friendId : f.userId;
+                            className="w-full p-2 rounded-md bg-input border border-border text-foreground"
+                            value={friendUsername}
+                            onChange={(e) => setFriendUsername(e.target.value)}
+                          >
+                            <option value="">Select a friend</option>
 
-                                  return (
-                                    <option key={f.id} value={id}>
-                                      {id}
-                                    </option>
-                                  );
-                                })}
+                            {friends
+                              .filter(f => f.status === "accepted")
+                              .map(f => {
+                                const friendId =
+                                  f.userId === pet.userId ? f.friendId : f.userId;
+                                
+                                // Fixed: Use type assertion to access nested properties, with ID fallback
+                                const displayName = (f as any).friend?.username ?? (f as any).user?.username ?? `User ${friendId}`;
+
+                                return (
+                                  <option key={f.id} value={friendId}>
+                                    {displayName}
+                                  </option>
+                                );
+                              })}
                           </select>
+
 
                           <Button
                             onClick={handleInviteFriend}
