@@ -17,7 +17,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Plus, Star, Image as ImageIcon, FileText, X } from "lucide-react";
 import type { Memory } from "@shared/schema";
-import Snowfall from 'react-snowfall';
 
 const createMemorySchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -82,35 +81,6 @@ export default function MemoryOrb() {
     },
   });
 
-  const deleteMemoryMutation = useMutation({
-  mutationFn: async (id: string) => {
-    return apiRequest("DELETE", `/api/memories/${id}`);
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/memories"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
-    setSelectedMemory(null);
-    toast({
-      title: "Memory deleted",
-      description: "The memory has been removed permanently.",
-    });
-  },
-  onError: () => {
-    toast({
-      title: "Error",
-      description: "Failed to delete memory.",
-      variant: "destructive",
-    });
-  },
-});
-
-
-  const handleDeleteMemory = (memoryId: string) => {
-  if (!confirm("Delete this memory permanently?")) return;
-  deleteMemoryMutation.mutate(memoryId);
-};
-
-
   const form = useForm<CreateMemoryData>({
     resolver: zodResolver(createMemorySchema),
     defaultValues: {
@@ -169,7 +139,6 @@ export default function MemoryOrb() {
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"
@@ -207,7 +176,7 @@ export default function MemoryOrb() {
           </motion.div>
 
           <motion.div
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
+            className="mb-12 p-8 glassmorphism rounded-3xl flex flex-col sm:flex-row gap-4 justify-center items-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
@@ -364,6 +333,7 @@ export default function MemoryOrb() {
             <Button 
               variant="outline" 
               className="px-8 py-3 glassmorphism text-foreground border-border hover:bg-muted/50"
+              onClick={() => document.getElementById('memories-grid')?.scrollIntoView({ behavior: 'smooth' })}
               data-testid="button-view-all"
             >
               <Sparkles className="w-5 h-5 mr-2" />
@@ -373,6 +343,7 @@ export default function MemoryOrb() {
 
           {memories.length > 0 && (
             <motion.div
+              id="memories-grid"
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -430,56 +401,34 @@ export default function MemoryOrb() {
           )}
 
           <Dialog open={!!selectedMemory} onOpenChange={() => setSelectedMemory(null)}>
-  <DialogContent className="glassmorphism border-border/50 max-w-lg">
-    <DialogHeader>
-      <DialogTitle className="text-foreground flex items-center justify-between">
-        <span className="flex items-center">
-          {selectedMemory?.type === "photo" ? (
-            <ImageIcon className="w-5 h-5 mr-2 text-primary" />
-          ) : (
-            <Star className="w-5 h-5 mr-2 text-primary" />
-          )}
-          {selectedMemory?.title}
-        </span>
-      </DialogTitle>
-    </DialogHeader>
-
-    <div className="space-y-4">
-      {selectedMemory && extractPhotoFromContent(selectedMemory.content) && (
-        <img
-          src={extractPhotoFromContent(selectedMemory.content)!}
-          alt={selectedMemory.title}
-          className="w-full rounded-lg"
-        />
-      )}
-
-      <p className="text-foreground whitespace-pre-wrap">
-        {selectedMemory && getTextContent(selectedMemory.content)}
-      </p>
-
-      <div className="text-sm text-muted-foreground">
-        Created:{" "}
-        {selectedMemory?.createdAt &&
-          new Date(selectedMemory.createdAt).toLocaleString()}
-      </div>
-    </div>
-
-    {/* 🔴 DELETE BUTTON — NOW VISIBLE & CORRECT */}
-    <div className="pt-4 border-t border-border flex justify-end">
-      <Button
-        variant="destructive"
-        onClick={() => {
-          if (!selectedMemory) return;
-          if (!confirm("Delete this memory permanently?")) return;
-          deleteMemoryMutation.mutate(selectedMemory.id);
-        }}
-      >
-        Delete Memory
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
-
+            <DialogContent className="glassmorphism border-border/50 max-w-lg" data-testid="dialog-memory-detail">
+              <DialogHeader>
+                <DialogTitle className="text-foreground flex items-center">
+                  {selectedMemory?.type === "photo" ? (
+                    <ImageIcon className="w-5 h-5 mr-2 text-primary" />
+                  ) : (
+                    <Star className="w-5 h-5 mr-2 text-primary" />
+                  )}
+                  {selectedMemory?.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {selectedMemory && extractPhotoFromContent(selectedMemory.content) && (
+                  <img 
+                    src={extractPhotoFromContent(selectedMemory.content)!} 
+                    alt={selectedMemory.title} 
+                    className="w-full rounded-lg"
+                  />
+                )}
+                <p className="text-foreground whitespace-pre-wrap">
+                  {selectedMemory && getTextContent(selectedMemory.content)}
+                </p>
+                <div className="text-sm text-muted-foreground">
+                  Created: {selectedMemory?.createdAt && new Date(selectedMemory.createdAt).toLocaleString()}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </Layout>

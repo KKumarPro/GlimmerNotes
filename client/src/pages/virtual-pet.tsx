@@ -12,20 +12,12 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
 import type { Pet } from "@shared/schema";
-import type { Friend } from "@shared/schema";
-import Snowfall from 'react-snowfall';
 
 export default function VirtualPet() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  // Fixed: Added missing state variable
   const [friendUsername, setFriendUsername] = useState("");
-
-  // Fixed: Moved useQuery inside the component
-  const { data: friends = [] } = useQuery<Friend[]>({
-    queryKey: ["/api/friends"],
-  });
 
   const { data: pet, isLoading } = useQuery<Pet>({
     queryKey: ["/api/pet"],
@@ -56,20 +48,16 @@ export default function VirtualPet() {
   });
 
   const inviteFriendMutation = useMutation({
-    mutationFn: async (friendId: string) => {
-      const response = await apiRequest(
-        "POST",
-        "/api/pet/co-care",
-        { friendId }
-      );
+    mutationFn: async (username: string) => {
+      const response = await apiRequest("POST", "/api/pet/co-care", { friendId: username });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
       setInviteDialogOpen(false);
+      setFriendUsername("");
       toast({
-        title: "Co-care partner added",
-        description: "Your friend is now helping take care of your pet 🐾",
+        title: "Invitation Sent",
+        description: "Co-care invitation sent to your friend!",
       });
     },
     onError: () => {
@@ -92,8 +80,8 @@ export default function VirtualPet() {
   };
 
   const handleInviteFriend = () => {
-    if (friendUsername) {
-      inviteFriendMutation.mutate(friendUsername);
+    if (friendUsername.trim()) {
+      inviteFriendMutation.mutate(friendUsername.trim());
     }
   };
 
@@ -127,20 +115,9 @@ export default function VirtualPet() {
   const energy = pet.energy ?? 50;
   const bond = pet.bond ?? 30;
 
-  // Fixed: Create a sanitized object to ensure numbers are passed to VirtualPet3D
-  const sanitizedPet = {
-    ...pet,
-    level: pet.level ?? 1,
-    happiness: happiness,
-    energy: energy,
-    bond: bond,
-    mood: pet.mood ?? "Neutral"
-  };
-
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"
@@ -160,7 +137,7 @@ export default function VirtualPet() {
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
+                  <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -307,14 +284,9 @@ export default function VirtualPet() {
                       <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent to-primary"></div>
                         <div>
-                          <p className="text-foreground font-medium">
-                            {/* Fixed: Use type assertion to handle potential 'friend' property safely */}
-                            {(() => {
-                              const coCarer = friends.find(f => f.userId === pet.coCarerId || f.friendId === pet.coCarerId);
-                              return (coCarer as any)?.friend?.username ?? (coCarer as any)?.user?.username ?? "Co-Care Partner";
-                            })()}
+                          <p className="text-foreground font-medium" data-testid="text-partner-name">
+                            Co-Care Partner
                           </p>
-
                           <p className="text-sm text-muted-foreground">Best Friend</p>
                         </div>
                       </div>
@@ -340,31 +312,13 @@ export default function VirtualPet() {
                           <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          <select
-                            className="w-full p-2 rounded-md bg-input border border-border text-foreground"
+                          <Input
+                            placeholder="Enter friend's username..."
                             value={friendUsername}
                             onChange={(e) => setFriendUsername(e.target.value)}
-                          >
-                            <option value="">Select a friend</option>
-
-                            {friends
-                              .filter(f => f.status === "accepted")
-                              .map(f => {
-                                const friendId =
-                                  f.userId === pet.userId ? f.friendId : f.userId;
-                                
-                                // Fixed: Use type assertion to access nested properties, with ID fallback
-                                const displayName = (f as any).friend?.username ?? (f as any).user?.username ?? `User ${friendId}`;
-
-                                return (
-                                  <option key={f.id} value={friendId}>
-                                    {displayName}
-                                  </option>
-                                );
-                              })}
-                          </select>
-
-
+                            className="bg-input border-border text-foreground"
+                            data-testid="input-friend-username"
+                          />
                           <Button
                             onClick={handleInviteFriend}
                             disabled={inviteFriendMutation.isPending || !friendUsername.trim()}

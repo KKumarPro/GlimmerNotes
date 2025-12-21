@@ -6,8 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "wouter";
-import Snowfall from 'react-snowfall';
-
 import { 
   Search, 
   HelpCircle, 
@@ -169,7 +167,6 @@ export default function Help() {
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D9"/>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div

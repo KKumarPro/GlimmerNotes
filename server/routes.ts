@@ -1,28 +1,20 @@
-import type { Express, Request, Response } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import {
-  generateChatbotResponse,
-  generateMemoryInsight,
-  generatePetInteraction,
-} from "./ai";
+import { generateChatbotResponse, generateMemoryInsight, generatePetInteraction } from "./openai";
 import { z } from "zod";
-import { insertMemorySchema, insertGameSchema } from "@shared/schema";
+import { insertMemorySchema, insertFriendSchema, insertChatMessageSchema, insertGameSchema, insertActivitySchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   const httpServer = createServer(app);
 
-  // Fixed: Define connectedUsers Map
-  const connectedUsers = new Map<string, { socket: WebSocket; lastSeen: Date }>();
-
   // WebSocket server for real-time features
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
-  // Fixed: Removed the stray if (message.type === "auth") block here
+  const connectedUsers = new Map<string, WebSocket>();
 
   wss.on('connection', (ws) => {
     let userId: string | null = null;
@@ -31,14 +23,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const message = JSON.parse(data.toString());
         
-        if (message.type === "auth") {
+        if (message.type === 'auth') {
           userId = message.userId;
-          connectedUsers.set(userId!, {
-            socket: ws,
-            lastSeen: new Date()
-          });
+          if (userId) {
+            connectedUsers.set(userId, ws);
+          }
         }
-
+        
         if (message.type === 'chat') {
           const chatMessage = await storage.createChatMessage({
             senderId: message.senderId,
@@ -49,8 +40,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Send to receiver if online
           const receiverWs = connectedUsers.get(message.receiverId);
-          if (receiverWs && receiverWs.socket.readyState === WebSocket.OPEN) {
-            receiverWs.socket.send(JSON.stringify({
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(JSON.stringify({
               type: 'chat',
               message: chatMessage
             }));
@@ -58,8 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         if (message.type === 'game_move') {
-          // Fix: Ensure gameId is treated as string for storage
-          const game = await storage.getGame(String(message.gameId));
+          const game = await storage.getGame(message.gameId);
           if (game) {
             const updatedGame = await storage.updateGame(game.id, {
               gameState: message.gameState,
@@ -68,10 +58,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Notify both players
             [game.player1Id, game.player2Id].forEach(playerId => {
-              // Fix: Convert ID to string for Map lookup
-              const playerEntry = connectedUsers.get(String(playerId));
-              if (playerEntry && playerEntry.socket.readyState === WebSocket.OPEN) {
-                playerEntry.socket.send(JSON.stringify({
+              const playerWs = connectedUsers.get(playerId);
+              if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                playerWs.send(JSON.stringify({
                   type: 'game_update',
                   game: updatedGame
                 }));
@@ -84,19 +73,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    ws.on("close", () => {
+    ws.on('close', () => {
       if (userId) {
         connectedUsers.delete(userId);
-
-        // Fixed: Commented out storage update because 'lastSeen' does not exist on User schema.
-        // If you want to track this in DB, add 'lastSeen' to your schema.ts.
-        /* storage.updateUser(userId, {
-          lastSeen: new Date()
-        }); 
-        */
       }
     });
-
   });
 
   // Memory routes
@@ -116,8 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(memory);
     } catch (error) {
-      console.error("Create memory error:", error);
-      return res.status(400).json({ error: "Invalid memory data" });
+      res.status(400).json({ error: "Invalid memory data" });
     }
   });
 
@@ -136,47 +116,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(insights);
   });
 
-  // Delete memory
-  app.delete("/api/memories/:id", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Fix: Use req.params.id as string (do not parseInt)
-    const memoryId = req.params.id;
-    
-    try {
-      // Fix: storage.getMemory expects string
-      const memory = await storage.getMemory(memoryId);
-
-      if (!memory) {
-        return res.status(404).json({ error: "Memory not found" });
-      }
-
-      // Ownership check
-      if (memory.userId !== req.user!.id) {
-        return res.status(403).json({ error: "You cannot delete this memory" });
-      }
-
-      // Fix: storage.deleteMemory expects string IDs (memoryId, userId)
-      await storage.deleteMemory(memoryId, req.user!.id);
-
-      // Optional: log activity
-      await storage.createActivity({
-        userId: req.user!.id,
-        type: "memory_deleted",
-        description: `Deleted a memory: ${memory.title}`,
-        data: { memoryId }
-      });
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Delete memory error:", error);
-      res.status(500).json({ error: "Failed to delete memory" });
-    }
-  });
-
-
   // Friends routes
   app.get("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
@@ -185,7 +124,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const friendsWithDetails = await Promise.all(
       friendships.map(async (friendship) => {
         const friendId = friendship.userId === req.user!.id ? friendship.friendId : friendship.userId;
-        // Fix: Ensure friendId is string for getUser
         const friend = await storage.getUser(friendId);
         return { ...friendship, friend };
       })
@@ -196,77 +134,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-
-    console.log("POST /api/friends body:", JSON.stringify(req.body));
-
+    
     try {
-      const { friendId: rawFriendId } = req.body;
-
-      // Try to resolve a real user record for the supplied identifier.
-      let friendUser = null;
+      const { friendId: friendUsername } = req.body;
       
-      // 1. Try generic ID lookup
-      if (rawFriendId) {
-        // Fix: Check if it looks like a number, but pass as string to getUser
-        if (!isNaN(parseInt(rawFriendId))) {
-             friendUser = await storage.getUser(rawFriendId);
-        }
-        
-        // 2. If not found, try username lookup
-        if (!friendUser) {
-          friendUser = await storage.getUserByUsername(rawFriendId);
-        }
+      // Resolve username to user ID
+      const friend = await storage.getUserByUsername(friendUsername);
+      if (!friend) {
+        return res.status(404).json({ error: "Friend not found" });
       }
-
-      if (!friendUser) {
-        console.error("Create friend failed - user not found for:", rawFriendId);
-        return res.status(404).json({ error: "Friend user not found" });
-      }
-
-      if (friendUser.id === req.user!.id) {
-        return res.status(400).json({ error: "You cannot add yourself as a friend" });
-      }
-
-      const existingFriendship = await storage.getFriendship(req.user!.id, friendUser.id);
-      if (existingFriendship) {
+      
+      const friendId = friend.id;
+      
+      // Check if already friends (in either direction)
+      const existingFriendship = await storage.getFriendship(req.user!.id, friendId);
+      const reverseFriendship = await storage.getFriendship(friendId, req.user!.id);
+      
+      if (existingFriendship || reverseFriendship) {
         return res.status(400).json({ error: "Friendship already exists" });
       }
-
+      
       const friendship = await storage.createFriend({
         userId: req.user!.id,
-        friendId: friendUser.id,
+        friendId,
         status: "pending"
       });
-
+      
       res.json(friendship);
     } catch (error) {
-      // Type narrowing for safety
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      
-      console.error("Create friend error:", errorMessage);
-      if (errorStack) console.error(errorStack);
-      
+      console.error('Friend request error:', error);
       res.status(400).json({ error: "Invalid friend request" });
     }
   });
 
-  
   app.patch("/api/friends/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
     
     const { status } = req.body;
-    // Fix: Use ID as string
-    const id = req.params.id;
-    
-    const friendship = await storage.updateFriendship(id, { status });
+    const friendship = await storage.updateFriendship(req.params.id, { status });
     
     if (status === "accepted") {
       await storage.createActivity({
         userId: req.user!.id,
         type: "friend_added",
         description: "Connected with a new friend",
-        data: { friendshipId: id }
+        data: { friendshipId: req.params.id }
       });
     }
     
@@ -340,56 +252,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/pet/co-care", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+    
     const { friendId } = req.body;
-    const userId = req.user!.id;
-
-    // Get pet
-    const pet = await storage.getPetByUser(userId);
-    if (!pet) {
-      return res.status(404).json({ error: "Pet not found" });
+    
+    // Get the friend's ID by username
+    const friend = await storage.getUserByUsername(friendId);
+    if (!friend) return res.status(404).json({ error: "Friend not found" });
+    
+    const pet = await storage.getPetByUser(req.user!.id);
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+    
+    // Update pet with co-carer
+    const updatedPet = await storage.updatePet(pet.id, { coCarerId: friend.id });
+    
+    // Update streak count
+    const friendship = await storage.getFriendship(req.user!.id, friend.id);
+    if (friendship) {
+      await storage.updateFriendship(friendship.id, { streakCount: (friendship.streakCount || 0) + 1 });
     }
-
-    // Only one co-care partner allowed
-    if (pet.coCarerId) {
-      return res.status(400).json({ error: "Co-care partner already assigned" });
-    }
-
-    // Check friendship in BOTH directions
-    const friendship = await storage.getFriendship(userId, friendId);
-
-    if (!friendship || friendship.status !== "accepted") {
-      return res.status(400).json({ error: "Not a valid friend" });
-    }
-
-    // Assign co-care partner
-    const updatedPet = await storage.updatePet(pet.id, {
-      coCarerId: friendId,
-    });
-
-    // Log activity (optional but good)
-    await storage.createActivity({
-      userId,
-      type: "co_care_added",
-      description: "Added a co-care partner",
-      data: { friendId },
-    });
-
-    res.json(updatedPet);
+    
+    res.json({ pet: updatedPet, message: "Co-care partner added!" });
   });
 
   // Chat routes
   app.get("/api/chat/:friendId", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
     
-    // Fix: friendId as string
-    const friendId = req.params.friendId;
-    // Fix: Ensure user ID is string
-    const messages = await storage.getChatMessages(String(req.user!.id), friendId);
+    const messages = await storage.getChatMessages(req.user!.id, req.params.friendId);
+    
+    // Update last interaction for streak
+    const friendship = await storage.getFriendship(req.user!.id, req.params.friendId);
+    if (friendship) {
+      const now = new Date();
+      const lastInteraction = friendship.lastInteraction ? new Date(friendship.lastInteraction) : null;
+      
+      // Increment streak if more than 1 day has passed since last interaction
+      if (!lastInteraction || (now.getTime() - lastInteraction.getTime()) > 24 * 60 * 60 * 1000) {
+        await storage.updateFriendship(friendship.id, {
+          lastInteraction: now,
+          streakCount: (friendship.streakCount || 0) + 1
+        });
+      } else {
+        await storage.updateFriendship(friendship.id, { lastInteraction: now });
+      }
+    }
+    
     res.json(messages);
+  });
+
+  app.get("/api/friends/conversations", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+    
+    const friendships = await storage.getFriendsByUser(req.user!.id);
+    const acceptedFriends = friendships.filter(f => f.status === "accepted");
+    
+    // Get last message for each friend and sort by most recent
+    const conversations = await Promise.all(
+      acceptedFriends.map(async (friendship) => {
+        const messages = await storage.getChatMessages(req.user!.id, friendship.userId === req.user!.id ? friendship.friendId : friendship.userId);
+        const lastMessage = messages.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        })[0];
+        
+        return {
+          friendship,
+          lastMessage: lastMessage || null,
+          lastMessageTime: lastMessage?.createdAt || friendship.lastInteraction
+        };
+      })
+    );
+    
+    // Sort by last message time
+    conversations.sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime || 0).getTime();
+      const timeB = new Date(b.lastMessageTime || 0).getTime();
+      return timeB - timeA;
+    });
+    
+    res.json(conversations);
   });
 
   // Game routes
@@ -420,9 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
     
-    // Fix: gameId as string
-    const gameId = req.params.id;
-    const game = await storage.getGame(gameId);
+    const game = await storage.getGame(req.params.id);
     if (!game || (game.player1Id !== req.user!.id && game.player2Id !== req.user!.id)) {
       return res.status(404).json({ error: "Game not found" });
     }
@@ -441,7 +382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chatbot routes
   app.post("/api/chatbot", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-      
+    
     const { message, context } = req.body;
     const response = await generateChatbotResponse(message, context);
     res.json({ response });

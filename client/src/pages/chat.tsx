@@ -11,15 +11,12 @@ import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, Send, Users } from "lucide-react";
 import type { Friend, ChatMessage } from "@shared/schema";
-import Snowfall from 'react-snowfall';
 
-// Fixed: Added lastSeen to the interface
 interface FriendWithDetails extends Friend {
   friend?: {
     id: string;
     username: string;
     displayName: string | null;
-    lastSeen?: string | Date | null;
   };
 }
 
@@ -38,22 +35,9 @@ export default function Chat() {
 
   const friends = friendsData as FriendWithDetails[];
 
-  // Fixed: Moved acceptedFriends definition up so it exists before sortedAcceptedFriends uses it
-  const acceptedFriends = friends.filter(f => f.status === "accepted");
-
-  const getLastMessageTime = (friendId: string) => {
-    const relevant = messages.filter(
-      m => m.senderId === friendId || m.receiverId === friendId
-    );
-    if (relevant.length === 0) return 0;
-    return new Date(relevant[relevant.length - 1].createdAt!).getTime();
-  };
-
-  // Fixed: Now acceptedFriends is defined before this runs
-  const sortedAcceptedFriends = [...acceptedFriends].sort((a, b) => {
-    const aId = a.userId === user?.id ? a.friendId : a.userId;
-    const bId = b.userId === user?.id ? b.friendId : b.userId;
-    return getLastMessageTime(bId) - getLastMessageTime(aId);
+  const { data: conversationsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/friends/conversations"],
+    refetchInterval: 5000,
   });
 
   const { data: chatMessagesData = [] } = useQuery<ChatMessage[]>({
@@ -118,6 +102,7 @@ export default function Chat() {
     }
   };
 
+  const acceptedFriends = friends.filter(f => f.status === "accepted");
   const selectedFriend = acceptedFriends.find(f => 
     f.userId === selectedChat || f.friendId === selectedChat
   );
@@ -125,7 +110,6 @@ export default function Chat() {
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"
@@ -144,9 +128,6 @@ export default function Chat() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
               >
-
-            
-            
                 <Card className="glassmorphism h-96" data-testid="card-chat-list">
                   <CardHeader>
                     <CardTitle className="text-lg text-foreground flex items-center">
@@ -163,40 +144,81 @@ export default function Chat() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {sortedAcceptedFriends.map((friend, index) => {
-                          const friendUserId = friend.userId === user?.id ? friend.friendId : friend.userId;
-                          const isSelected = selectedChat === friendUserId;
-                          
-                          return (
-                            <motion.div
-                              key={friend.id}
-                              className={`p-3 rounded-xl cursor-pointer transition-colors ${
-                                isSelected 
-                                  ? "bg-primary/20 border border-primary/30" 
-                                  : "bg-muted/30 hover:bg-muted/50"
-                              }`}
-                              onClick={() => setSelectedChat(friendUserId)}
-                              whileHover={{ scale: 1.02 }}
-                              data-testid={`chat-item-${index}`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="w-8 h-8 bg-gradient-to-r from-primary to-accent">
-                                  <AvatarFallback className="bg-transparent text-white text-sm">
-                                    {friend.friend?.displayName?.[0] || friend.friend?.username?.[0] || "F"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground truncate" data-testid={`chat-name-${index}`}>
-                                    {friend.friend?.displayName || friend.friend?.username || "Friend"}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    Click to start chatting
-                                  </p>
+                        {conversationsData && conversationsData.length > 0 ? (
+                          conversationsData.map((conversation: any, index: number) => {
+                            const friendUserId = conversation.friendship.userId === user?.id ? conversation.friendship.friendId : conversation.friendship.userId;
+                            const isSelected = selectedChat === friendUserId;
+                            const friendDetails = friends.find(f => {
+                              const fid = f.userId === user?.id ? f.friendId : f.userId;
+                              return fid === friendUserId;
+                            })?.friend;
+                            
+                            return (
+                              <motion.div
+                                key={conversation.friendship.id}
+                                className={`p-3 rounded-xl cursor-pointer transition-colors ${
+                                  isSelected 
+                                    ? "bg-primary/20 border border-primary/30" 
+                                    : "bg-muted/30 hover:bg-muted/50"
+                                }`}
+                                onClick={() => setSelectedChat(friendUserId)}
+                                whileHover={{ scale: 1.02 }}
+                                data-testid={`chat-item-${index}`}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="w-8 h-8 bg-gradient-to-r from-primary to-accent">
+                                    <AvatarFallback className="bg-transparent text-white text-sm">
+                                      {friendDetails?.displayName?.[0] || friendDetails?.username?.[0] || "F"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate" data-testid={`chat-name-${index}`}>
+                                      {friendDetails?.displayName || friendDetails?.username || "Friend"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {conversation.lastMessage?.content?.substring(0, 30) || "No messages yet"}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
+                              </motion.div>
+                            );
+                          })
+                        ) : (
+                          acceptedFriends.map((friend, index) => {
+                            const friendUserId = friend.userId === user?.id ? friend.friendId : friend.userId;
+                            const isSelected = selectedChat === friendUserId;
+                            
+                            return (
+                              <motion.div
+                                key={friend.id}
+                                className={`p-3 rounded-xl cursor-pointer transition-colors ${
+                                  isSelected 
+                                    ? "bg-primary/20 border border-primary/30" 
+                                    : "bg-muted/30 hover:bg-muted/50"
+                                }`}
+                                onClick={() => setSelectedChat(friendUserId)}
+                                whileHover={{ scale: 1.02 }}
+                                data-testid={`chat-item-${index}`}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="w-8 h-8 bg-gradient-to-r from-primary to-accent">
+                                    <AvatarFallback className="bg-transparent text-white text-sm">
+                                      {friend.friend?.displayName?.[0] || friend.friend?.username?.[0] || "F"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate" data-testid={`chat-name-${index}`}>
+                                      {friend.friend?.displayName || friend.friend?.username || "Friend"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      Click to start chatting
+                                    </p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -224,12 +246,7 @@ export default function Chat() {
                             <p className="font-medium text-foreground" data-testid="text-chat-partner">
                               {selectedFriend.friend?.displayName || selectedFriend.friend?.username || "Friend"}
                             </p>
-                            <p className="text-sm text-muted-foreground">
-                              {selectedFriend.friend?.lastSeen
-                                ? `Last seen ${new Date(selectedFriend.friend.lastSeen).toLocaleString()}`
-                                : "Offline"}
-                            </p>
-
+                            <p className="text-sm text-muted-foreground">Online</p>
                           </div>
                         </div>
                       </CardHeader>

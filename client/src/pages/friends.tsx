@@ -10,8 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Users, UserPlus, MessageCircle, Gamepad2, Check, X, Zap } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import type { Friend } from "@shared/schema";
-import Snowfall from 'react-snowfall';
 
 interface FriendWithDetails extends Friend {
   friend?: {
@@ -22,6 +22,7 @@ interface FriendWithDetails extends Friend {
 }
 
 export default function Friends() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addFriendDialogOpen, setAddFriendDialogOpen] = useState(false);
@@ -32,7 +33,6 @@ export default function Friends() {
   });
 
   const friends = friendsData as FriendWithDetails[];
-  
 
   const addFriendMutation = useMutation({
     mutationFn: async (username: string) => {
@@ -101,7 +101,6 @@ export default function Friends() {
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div
@@ -195,22 +194,26 @@ export default function Friends() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="p-2 hover:bg-muted/50"
-                                data-testid={`button-chat-${index}`}
-                              >
-                                <MessageCircle className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="p-2 hover:bg-muted/50"
-                                data-testid={`button-games-${index}`}
-                              >
-                                <Gamepad2 className="w-4 h-4" />
-                              </Button>
+                              <a href={`/chat/${friendship.userId === user?.id ? friendship.friendId : friendship.userId}`}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="p-2 hover:bg-muted/50"
+                                  data-testid={`button-chat-${index}`}
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                </Button>
+                              </a>
+                              <a href="/games">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="p-2 hover:bg-muted/50"
+                                  data-testid={`button-games-${index}`}
+                                >
+                                  <Gamepad2 className="w-4 h-4" />
+                                </Button>
+                              </a>
                             </div>
                           </motion.div>
                         ))}

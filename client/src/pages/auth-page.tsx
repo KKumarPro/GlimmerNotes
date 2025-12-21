@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StarField } from "@/components/StarField";
 import { Sparkles, Heart, Users } from "lucide-react";
-import Snowfall from 'react-snowfall';
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -81,9 +80,6 @@ export default function AuthPage() {
             transition={{ duration: 0.6 }}
             className="w-full max-w-md"
           >
-
-          <Snowfall color="#82C3D9"/>
-          
             <Card className="glassmorphism border-border/50" data-testid="auth-card">
               <CardHeader className="text-center">
                 <motion.div

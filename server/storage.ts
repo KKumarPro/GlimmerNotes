@@ -18,10 +18,7 @@ export interface IStorage {
   createMemory(memory: InsertMemory): Promise<Memory>;
   getMemoriesByUser(userId: string): Promise<Memory[]>;
   getMemory(id: string): Promise<Memory | undefined>;
-  // Overloaded signatures for deleteMemory
-  deleteMemory(id: string): Promise<void>;
-  deleteMemory(id: string, userId: string): Promise<boolean>;
-
+  
   createFriend(friend: InsertFriend): Promise<Friend>;
   getFriendsByUser(userId: string): Promise<Friend[]>;
   getFriendship(userId: string, friendId: string): Promise<Friend | undefined>;
@@ -30,7 +27,6 @@ export interface IStorage {
   getPetByUser(userId: string): Promise<Pet | undefined>;
   createPet(pet: InsertPet): Promise<Pet>;
   updatePet(id: string, updates: Partial<Pet>): Promise<Pet | undefined>;
-  coCarePartnerId?: string | null;
   
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatMessages(userId1: string, userId2: string): Promise<ChatMessage[]>;
@@ -58,7 +54,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    // Ensure we are selecting safely
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
@@ -79,7 +74,6 @@ export class DatabaseStorage implements IStorage {
       displayName: insertUser.displayName || null,
     }).returning();
 
-    // Create default pet for new user
     await this.createPet({
       userId: user.id,
       name: "Stardust",
@@ -113,31 +107,6 @@ export class DatabaseStorage implements IStorage {
     }
 
     return memory;
-  }
-
-  // Implementation compatible with both overloads
-  async deleteMemory(id: string): Promise<void>;
-  async deleteMemory(id: string, userId: string): Promise<boolean>;
-  async deleteMemory(id: string, userId?: string): Promise<void | boolean> {
-    if (userId) {
-      // Logic for delete with ownership check (returns boolean)
-      const memory = await this.getMemory(id);
-      if (!memory || memory.userId !== userId) return false;
-
-      await db.delete(memories).where(eq(memories.id, id));
-
-      const user = await this.getUser(userId);
-      if (user) {
-        await this.updateUser(userId, {
-          memoriesCount: Math.max((user.memoriesCount || 1) - 1, 0),
-        });
-      }
-      return true;
-    } else {
-      // Logic for unconditional delete (returns void)
-      await db.delete(memories).where(eq(memories.id, id));
-      return;
-    }
   }
 
   async getMemoriesByUser(userId: string): Promise<Memory[]> {
@@ -231,22 +200,6 @@ export class DatabaseStorage implements IStorage {
 
   async getGroupChatMessages(roomId: string): Promise<ChatMessage[]> {
     return db.select().from(chatMessages).where(eq(chatMessages.roomId, roomId)).orderBy(chatMessages.createdAt);
-  }
-
-  async getLastMessageBetweenUsers(userId: string, friendId: string) {
-  const [msg] = await db
-    .select()
-    .from(chatMessages)
-    .where(
-      or(
-        and(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, friendId)),
-        and(eq(chatMessages.senderId, friendId), eq(chatMessages.receiverId, userId))
-      )
-    )
-    .orderBy(desc(chatMessages.createdAt))
-    .limit(1);
-
-    return msg || null;
   }
 
   async createGame(insertGame: InsertGame): Promise<Game> {
