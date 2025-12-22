@@ -19,7 +19,6 @@ import Privacy from "@/pages/privacy";
 import Contact from "@/pages/contact";
 import About from "@/pages/about";
 import Help from "@/pages/help";
-import Snowfall from 'react-snowfall';
 
 function Router() {
   return (
@@ -45,7 +44,6 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Snowfall color="#82C3D"/>
       <TooltipProvider>
         <AuthProvider>
           <SocketProvider>
