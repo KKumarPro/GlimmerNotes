@@ -101,7 +101,6 @@ export default function VirtualPet() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
-          <Snowfall color="#82C3D"/>
           <Card className="glassmorphism max-w-md">
             <CardContent className="p-8 text-center">
               <Heart className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
@@ -121,6 +120,7 @@ export default function VirtualPet() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D9"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"

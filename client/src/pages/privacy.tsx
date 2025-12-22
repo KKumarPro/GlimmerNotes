@@ -2,13 +2,13 @@ import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Eye, Lock, Database, Users, Globe } from "lucide-react";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
 
 export default function Privacy() {
   return (
     <Layout>
       <div className="py-12">
-        <Snowfall color="#82C3D"/>
+        <Snowfall color="#82C3D9"/>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div

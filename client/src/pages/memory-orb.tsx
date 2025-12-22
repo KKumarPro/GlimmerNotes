@@ -132,7 +132,7 @@ export default function MemoryOrb() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
-          <Snowfall color="#82C3D"/>
+          <Snowfall color="#82C3D9"/>
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
         </div>
       </Layout>

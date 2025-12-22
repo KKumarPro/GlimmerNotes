@@ -72,7 +72,7 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen cosmic-bg relative overflow-hidden">
-      <Snowfall color="#82C3D"/>
+      <Snowfall color="#82C3D9"/>
       <StarField />
       
       <div className="relative z-10 min-h-screen flex">
