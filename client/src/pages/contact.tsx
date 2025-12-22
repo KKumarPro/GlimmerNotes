@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, MessageSquare, Sparkles, Send, MapPin, Clock } from "lucide-react";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 export default function Contact() {
   const { toast } = useToast();

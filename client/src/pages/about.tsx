@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Heart, Sparkles, Users, Star, Rocket, Globe, Target, Award } from "lucide-react";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 export default function About() {
   const teamMembers = [

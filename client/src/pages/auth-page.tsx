@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StarField } from "@/components/StarField";
 import { Sparkles, Heart, Users } from "lucide-react";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),

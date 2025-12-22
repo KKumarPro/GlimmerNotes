@@ -12,7 +12,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
 import type { Pet } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 export default function VirtualPet() {
   const { toast } = useToast();

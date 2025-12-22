@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Star, Users, Heart, Sparkles } from "lucide-react";
 import cosmicBg from "@assets/Untitled_1766157378996.png";
 import type { User, Activity } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 interface DashboardData {
   user: User;

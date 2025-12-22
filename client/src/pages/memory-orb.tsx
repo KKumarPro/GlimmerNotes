@@ -17,7 +17,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Plus, Star, Image as ImageIcon, FileText, X } from "lucide-react";
 import type { Memory } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 const createMemorySchema = z.object({
   title: z.string().min(1, "Title is required"),

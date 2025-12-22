@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "wouter";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 import { 
   Search, 
   HelpCircle, 

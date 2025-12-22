@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Gamepad2, ExternalLink, Puzzle, Target, Sparkles, Trophy } from "lucide-react";
 import type { Friend, Game } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 interface FriendWithDetails extends Friend {
   friend?: {

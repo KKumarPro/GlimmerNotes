@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Users, UserPlus, MessageCircle, Gamepad2, Check, X, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { Friend } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 interface FriendWithDetails extends Friend {
   friend?: {

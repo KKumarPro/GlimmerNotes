@@ -11,7 +11,8 @@ import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, Send, Users } from "lucide-react";
 import type { Friend, ChatMessage } from "@shared/schema";
-import Snowfall from 'react-snowfall';
+import Snowfall from "react-snowfall";
+
 
 interface FriendWithDetails extends Friend {
   friend?: {
