@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "lucide-react";
 import type { Pet } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 export default function VirtualPet() {
   const { toast } = useToast();
@@ -99,6 +100,7 @@ export default function VirtualPet() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
+          <Snowfall color="#82C3D"/>
           <Card className="glassmorphism max-w-md">
             <CardContent className="p-8 text-center">
               <Heart className="w-16 h-16 mx-auto text-muted-foreground mb-4" />

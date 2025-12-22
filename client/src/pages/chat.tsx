@@ -11,6 +11,7 @@ import { useSocket } from "@/hooks/use-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageCircle, Send, Users } from "lucide-react";
 import type { Friend, ChatMessage } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 interface FriendWithDetails extends Friend {
   friend?: {
@@ -110,6 +111,7 @@ export default function Chat() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"

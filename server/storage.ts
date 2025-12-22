@@ -202,14 +202,6 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(chatMessages).where(eq(chatMessages.roomId, roomId)).orderBy(chatMessages.createdAt);
   }
 
-  async deleteExpiredChatMessages() {
-  await this.db.execute(sql`
-    DELETE FROM chat_messages
-    WHERE created_at < NOW() - INTERVAL '24 hours'
-  `);
-}
-
-
   async createGame(insertGame: InsertGame): Promise<Game> {
     const [game] = await db.insert(games).values({
       ...insertGame,

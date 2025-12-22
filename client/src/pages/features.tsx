@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import Snowfall from 'react-snowfall';
 import { 
   Sparkles, 
   Heart, 
@@ -144,6 +145,7 @@ export default function Features() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div

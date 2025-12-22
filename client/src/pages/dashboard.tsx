@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Star, Users, Heart, Sparkles } from "lucide-react";
 import cosmicBg from "@assets/Untitled_1766157378996.png";
 import type { User, Activity } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 interface DashboardData {
   user: User;
@@ -48,6 +49,7 @@ export default function Dashboard() {
           backgroundAttachment: 'fixed',
         }}
       >
+        <Snowfall color="#82C3D"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="text-center mb-12"

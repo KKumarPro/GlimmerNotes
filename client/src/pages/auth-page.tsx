@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StarField } from "@/components/StarField";
 import { Sparkles, Heart, Users } from "lucide-react";
+import Snowfall from 'react-snowfall';
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -70,6 +71,7 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen cosmic-bg relative overflow-hidden">
+      <Snowfall color="#82C3D"/>
       <StarField />
       
       <div className="relative z-10 min-h-screen flex">

@@ -17,6 +17,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Plus, Star, Image as ImageIcon, FileText, X } from "lucide-react";
 import type { Memory } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 const createMemorySchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -130,6 +131,7 @@ export default function MemoryOrb() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
+          <Snowfall color="#82C3D"/>
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
         </div>
       </Layout>

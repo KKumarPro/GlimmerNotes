@@ -276,41 +276,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat routes
-app.get("/api/chat/:friendId", async (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const userId = req.user!.id;
-  const friendId = req.params.friendId;
-
-  // 1️⃣ DELETE expired chats (older than 24 hours)
-  await storage.deleteExpiredChatMessages();
-
-  // 2️⃣ Fetch only valid messages
-  const messages = await storage.getChatMessages(userId, friendId);
-
-  // 3️⃣ Existing streak logic (leave it for now)
-  const friendship = await storage.getFriendship(userId, friendId);
-  if (friendship) {
-    const now = new Date();
-    const lastInteraction = friendship.lastInteraction
-      ? new Date(friendship.lastInteraction)
-      : null;
-
-    if (!lastInteraction || now.getTime() - lastInteraction.getTime() > 24 * 60 * 60 * 1000) {
-      await storage.updateFriendship(friendship.id, {
-        lastInteraction: now,
-        streakCount: (friendship.streakCount || 0) + 1,
-      });
-    } else {
-      await storage.updateFriendship(friendship.id, { lastInteraction: now });
+  app.get("/api/chat/:friendId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+    
+    const messages = await storage.getChatMessages(req.user!.id, req.params.friendId);
+    
+    // Update last interaction for streak
+    const friendship = await storage.getFriendship(req.user!.id, req.params.friendId);
+    if (friendship) {
+      const now = new Date();
+      const lastInteraction = friendship.lastInteraction ? new Date(friendship.lastInteraction) : null;
+      
+      // Increment streak if more than 1 day has passed since last interaction
+      if (!lastInteraction || (now.getTime() - lastInteraction.getTime()) > 24 * 60 * 60 * 1000) {
+        await storage.updateFriendship(friendship.id, {
+          lastInteraction: now,
+          streakCount: (friendship.streakCount || 0) + 1
+        });
+      } else {
+        await storage.updateFriendship(friendship.id, { lastInteraction: now });
+      }
     }
-  }
-
-  res.json(messages);
-});
-
+    
+    res.json(messages);
+  });
 
   app.get("/api/friends/conversations", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });

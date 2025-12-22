@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Users, UserPlus, MessageCircle, Gamepad2, Check, X, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { Friend } from "@shared/schema";
+import Snowfall from 'react-snowfall';
 
 interface FriendWithDetails extends Friend {
   friend?: {
@@ -101,6 +102,7 @@ export default function Friends() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D"/>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div

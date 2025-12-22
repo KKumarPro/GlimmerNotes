@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, MessageSquare, Sparkles, Send, MapPin, Clock } from "lucide-react";
+import Snowfall from 'react-snowfall';
 
 export default function Contact() {
   const { toast } = useToast();
@@ -83,6 +84,7 @@ export default function Contact() {
   return (
     <Layout>
       <div className="py-12">
+        <Snowfall color="#82C3D"/>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <motion.div
