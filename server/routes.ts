@@ -345,8 +345,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   if (pet.coCarerId) {
-    return res.status(400).json({ error: "Pet already has a co-care partner" });
-  }
+  const existingPartner = await storage.getUser(pet.coCarerId);
+
+  return res.status(400).json({
+    error: "Pet already has a co-care partner",
+    partner: existingPartner
+      ? {
+          id: existingPartner.id,
+          username: existingPartner.username,
+          displayName: existingPartner.displayName
+        }
+      : null
+  });
+}
 
   // 4️⃣ Assign co-care partner
   const updatedPet = await storage.updatePet(pet.id, {
