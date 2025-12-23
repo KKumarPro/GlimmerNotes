@@ -316,45 +316,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  
-
   app.post("/api/pet/co-care", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-    try {
-      const { friendId } = z.object({ friendId: z.string() }).parse(req.body);
-      const userId = req.user!.id;
+  const userId = req.user!.id;
+  const { friendId } = req.body; // this is actually USERNAME right now
 
-      // 1. Ensure they are friends
-      const friendship = await storage.getFriendship(userId, friendId);
-      if (!friendship || friendship.status !== "accepted") {
-        return res.status(400).json({ error: "Not a valid friend" });
-      }
+  // 1️⃣ Resolve username → user
+  const friendUser = await storage.getUserByUsername(friendId);
+  if (!friendUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
 
-      // 2. Get user's pet
-      const pet = await storage.getPetByUser(userId);
-      if (!pet) return res.status(404).json({ error: "Pet not found" });
+  const friendUserId = friendUser.id;
 
-      // 3. Prevent multiple partners (Fixed camelCase property check)
-      if (pet.coCarerId) {
-        return res.status(400).json({ error: "Pet already has a co-care partner" });
-      }
+  // 2️⃣ Validate friendship (bidirectional)
+  const friendship = await storage.getFriendship(userId, friendUserId);
+  if (!friendship || friendship.status !== "accepted") {
+    return res.status(400).json({ error: "Not a valid friend" });
+  }
 
-      // 4. Assign shared ownership (Fixed camelCase property update)
-      const updatedPet = await storage.updatePet(pet.id, {
-        coCarerId: friendId
-      });
+  // 3️⃣ Get pet (shared logic already fixed)
+  const pet = await storage.getPetByUser(userId);
+  if (!pet) {
+    return res.status(404).json({ error: "Pet not found" });
+  }
 
-      if (!updatedPet) return res.status(500).json({ error: "Failed to update pet" });
+  if (pet.coCarerId) {
+    return res.status(400).json({ error: "Pet already has a co-care partner" });
+  }
 
-      res.json({
-        pet: updatedPet,
-        message: "Co-Care Partner added. Pet is now shared."
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to add co-care partner" });
-    }
+  // 4️⃣ Assign co-care partner
+  const updatedPet = await storage.updatePet(pet.id, {
+    coCarerId: friendUserId
   });
+
+  res.json({
+    pet: updatedPet,
+    message: "Co-Care Partner added. Pet is now shared."
+  });
+});
 
   // Chat routes
   app.get("/api/chat/:friendId", async (req, res) => {
