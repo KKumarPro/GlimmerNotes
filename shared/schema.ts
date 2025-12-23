@@ -49,7 +49,8 @@ export const pets = pgTable("pets", {
   energy: integer("energy").default(50),
   bond: integer("bond").default(30),
   mood: text("mood").default("Neutral"),
-  coCarerId: varchar("co_carer_id").references(() => users.id),
+  coCarerId: varchar("co_carer_id")
+  .references(() => users.id),
   lastFed: timestamp("last_fed"),
   lastPlayed: timestamp("last_played"),
   createdAt: timestamp("created_at").defaultNow(),
