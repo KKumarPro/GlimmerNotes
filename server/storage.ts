@@ -1,5 +1,10 @@
-import { type User, type InsertUser, type Memory, type InsertMemory, type Friend, type InsertFriend, type Pet, type InsertPet, type ChatMessage, type InsertChatMessage, type Game, type InsertGame, type Activity, type InsertActivity } from "@shared/schema";
-import { users, memories, friends, pets, chatMessages, games, activities } from "@shared/schema";
+import { 
+  type User, type InsertUser, type Memory, type InsertMemory, 
+  type Friend, type InsertFriend, type Pet, type InsertPet, 
+  type ChatMessage, type InsertChatMessage, type Game, type InsertGame, 
+  type Activity, type InsertActivity,
+  users, memories, friends, pets, chatMessages, games, activities 
+} from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
 import session from "express-session";
@@ -18,6 +23,7 @@ export interface IStorage {
   createMemory(memory: InsertMemory): Promise<Memory>;
   getMemoriesByUser(userId: string): Promise<Memory[]>;
   getMemory(id: string): Promise<Memory | undefined>;
+  deleteMemory(id: string, userId: string): Promise<void>; // Added based on context from server.ts
   
   createFriend(friend: InsertFriend): Promise<Friend>;
   getFriendsByUser(userId: string): Promise<Friend[]>;
@@ -69,23 +75,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values({
-      ...insertUser,
-      displayName: insertUser.displayName || null,
-    }).returning();
+    // Fixed: Wrapped in transaction for atomicity
+    return await db.transaction(async (tx) => {
+      const [user] = await tx.insert(users).values({
+        ...insertUser,
+        displayName: insertUser.displayName || null,
+      }).returning();
 
-    await this.createPet({
-      userId: user.id,
-      name: "Stardust",
-      species: "Cosmic Fairy",
-      level: 1,
-      happiness: 50,
-      energy: 50,
-      bond: 30,
-      mood: "Neutral",
+      // Create default pet within the same transaction
+      await tx.insert(pets).values({
+        userId: user.id,
+        name: "Stardust",
+        species: "Cosmic Fairy",
+        level: 1,
+        happiness: 50,
+        energy: 50,
+        bond: 30,
+        mood: "Neutral",
+      });
+
+      return user;
     });
-
-    return user;
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
@@ -118,6 +128,16 @@ export class DatabaseStorage implements IStorage {
     return memory || undefined;
   }
 
+  async deleteMemory(id: string, userId: string): Promise<void> {
+    await db.delete(memories).where(and(eq(memories.id, id), eq(memories.userId, userId)));
+    
+    // Decrement count
+    const user = await this.getUser(userId);
+    if (user && (user.memoriesCount || 0) > 0) {
+      await this.updateUser(userId, { memoriesCount: (user.memoriesCount || 0) - 1 });
+    }
+  }
+
   async createFriend(insertFriend: InsertFriend): Promise<Friend> {
     const [friend] = await db.insert(friends).values({
       ...insertFriend,
@@ -125,9 +145,14 @@ export class DatabaseStorage implements IStorage {
     }).returning();
 
     if (friend.status === "accepted") {
+      // Fixed: Update BOTH users if accepted immediately
       const user = await this.getUser(friend.userId);
       if (user) {
         await this.updateUser(user.id, { friendsCount: (user.friendsCount || 0) + 1 });
+      }
+      const friendUser = await this.getUser(friend.friendId);
+      if (friendUser) {
+        await this.updateUser(friendUser.id, { friendsCount: (friendUser.friendsCount || 0) + 1 });
       }
     }
 
@@ -152,11 +177,23 @@ export class DatabaseStorage implements IStorage {
 
   async updateFriendship(id: string, updates: Partial<Friend>): Promise<Friend | undefined> {
     const [friend] = await db.update(friends).set(updates).where(eq(friends.id, id)).returning();
+    
+    // Logic for updating counts when status changes to accepted is handled in route handlers usually,
+    // or can be added here if we fetch the friend record first. 
+    // For now keeping it simple as per original logic structure.
+    
     return friend || undefined;
   }
 
+  // Fixed: Correctly implemented getPetByUser using Drizzle
   async getPetByUser(userId: string): Promise<Pet | undefined> {
-    const [pet] = await db.select().from(pets).where(eq(pets.userId, userId));
+    const [pet] = await db.select().from(pets).where(
+      or(
+        eq(pets.userId, userId),
+        eq(pets.coCarerId, userId)
+      )
+    ).limit(1);
+    
     return pet || undefined;
   }
 
