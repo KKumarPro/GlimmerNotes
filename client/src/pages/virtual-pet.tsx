@@ -14,9 +14,9 @@ import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "l
 import type { Pet } from "@shared/schema";
 import Snowfall from "react-snowfall";
 
-// Defined extended interface to support the nested partner object
+// Defined extended interface with the specific property name 'coCarePartner'
 interface PetWithPartner extends Pet {
-  coCarerPartner?: {
+  coCarePartner?: {
     id: string;
     username: string;
     displayName?: string | null;
@@ -29,7 +29,6 @@ export default function VirtualPet() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
 
-  // Updated to use the extended type
   const { data: pet, isLoading } = useQuery<PetWithPartner>({
     queryKey: ["/api/pet"],
   });
@@ -303,8 +302,8 @@ export default function VirtualPet() {
                     <CardTitle className="text-lg text-foreground">Co-Care Partner</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* Fixed: Use pet.coCarerPartner directly */}
-                    {pet.coCarerPartner ? (
+                    {/* Fixed: Use pet.coCarePartner directly */}
+                    {pet.coCarePartner ? (
                       <div className="co-care-info flex items-center gap-4">
                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent to-primary flex items-center justify-center">
                             <Users className="w-6 h-6 text-white" />
@@ -314,7 +313,7 @@ export default function VirtualPet() {
                               Co-Care Partner:
                             </p>
                             <p className="font-semibold text-foreground">
-                              {pet.coCarerPartner.displayName || pet.coCarerPartner.username}
+                              {pet.coCarePartner.displayName || pet.coCarePartner.username}
                             </p>
                          </div>
                       </div>
@@ -325,7 +324,7 @@ export default function VirtualPet() {
                       </div>
                     )}
                     
-                    {!pet.coCarerPartner && (
+                    {!pet.coCarePartner && (
                       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                         <DialogTrigger asChild>
                           <Button 
