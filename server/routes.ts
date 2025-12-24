@@ -244,10 +244,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Pet routes
   app.get("/api/pet", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-    const pet = await storage.getPetByUser(req.user!.id);
-    res.json(pet);
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const pet = await storage.getPetByUser(req.user!.id);
+  if (!pet) return res.json(null);
+
+  let coCarePartner = null;
+
+  if (pet.coCarerId) {
+    const partner = await storage.getUser(pet.coCarerId);
+    if (partner) {
+      coCarePartner = {
+        id: partner.id,
+        username: partner.username,
+        displayName: partner.displayName,
+      };
+    }
+  }
+
+  res.json({
+    ...pet,
+    coCarePartner,
   });
+});
 
   app.post("/api/pet/action", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });

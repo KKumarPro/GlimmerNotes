@@ -14,6 +14,14 @@ import { Heart, Zap, Users, Coffee, Gamepad2, Moon, Dumbbell, UserPlus } from "l
 import type { Pet } from "@shared/schema";
 import Snowfall from "react-snowfall";
 
+// Defined extended interface to support the nested partner object
+interface PetWithPartner extends Pet {
+  coCarerPartner?: {
+    id: string;
+    username: string;
+    displayName?: string | null;
+  } | null;
+}
 
 export default function VirtualPet() {
   const { toast } = useToast();
@@ -21,7 +29,8 @@ export default function VirtualPet() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [friendUsername, setFriendUsername] = useState("");
 
-  const { data: pet, isLoading } = useQuery<Pet>({
+  // Updated to use the extended type
+  const { data: pet, isLoading } = useQuery<PetWithPartner>({
     queryKey: ["/api/pet"],
   });
 
@@ -55,6 +64,7 @@ export default function VirtualPet() {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pet"] });
       setInviteDialogOpen(false);
       setFriendUsername("");
       toast({
@@ -117,6 +127,16 @@ export default function VirtualPet() {
   const energy = pet.energy ?? 50;
   const bond = pet.bond ?? 30;
 
+  // Sanitized object for 3D component
+  const sanitizedPet = {
+    ...pet,
+    level: pet.level ?? 1,
+    happiness: happiness,
+    energy: energy,
+    bond: bond,
+    mood: pet.mood ?? "Neutral"
+  };
+
   return (
     <Layout>
       <div className="py-12">
@@ -140,7 +160,7 @@ export default function VirtualPet() {
             >
               <Card className="glassmorphism" data-testid="card-pet-display">
                 <CardContent className="p-8">
-                  <VirtualPet3D pet={pet} onPetClick={handlePetClick} />
+                  <VirtualPet3D pet={sanitizedPet} onPetClick={handlePetClick} />
                   
                   <div className="mt-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -283,56 +303,63 @@ export default function VirtualPet() {
                     <CardTitle className="text-lg text-foreground">Co-Care Partner</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {pet.coCarerId ? (
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent to-primary"></div>
-                        <div>
-                          <p className="text-foreground font-medium" data-testid="text-partner-name">
-                            Co-Care Partner
-                          </p>
-                          <p className="text-sm text-muted-foreground">Best Friend</p>
-                        </div>
+                    {/* Fixed: Use pet.coCarerPartner directly */}
+                    {pet.coCarerPartner ? (
+                      <div className="co-care-info flex items-center gap-4">
+                         <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent to-primary flex items-center justify-center">
+                            <Users className="w-6 h-6 text-white" />
+                         </div>
+                         <div>
+                            <p className="text-sm text-muted-foreground">
+                              Co-Care Partner:
+                            </p>
+                            <p className="font-semibold text-foreground">
+                              {pet.coCarerPartner.displayName || pet.coCarerPartner.username}
+                            </p>
+                         </div>
                       </div>
                     ) : (
-                      <div className="text-center">
+                      <div className="co-care-add text-center">
                         <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                         <p className="text-muted-foreground mb-4">No co-care partner yet</p>
                       </div>
                     )}
                     
-                    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          className="w-full mt-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 glow-button"
-                          data-testid="button-invite-partner"
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Invite Co-Care Partner
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="glassmorphism border-border/50" data-testid="dialog-invite-partner">
-                        <DialogHeader>
-                          <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <Input
-                            placeholder="Enter friend's username..."
-                            value={friendUsername}
-                            onChange={(e) => setFriendUsername(e.target.value)}
-                            className="bg-input border-border text-foreground"
-                            data-testid="input-friend-username"
-                          />
-                          <Button
-                            onClick={handleInviteFriend}
-                            disabled={inviteFriendMutation.isPending || !friendUsername.trim()}
-                            className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
-                            data-testid="button-send-invite"
+                    {!pet.coCarerPartner && (
+                      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            className="w-full mt-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 glow-button"
+                            data-testid="button-invite-partner"
                           >
-                            {inviteFriendMutation.isPending ? "Sending..." : "Send Invitation"}
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Invite Co-Care Partner
                           </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                        </DialogTrigger>
+                        <DialogContent className="glassmorphism border-border/50" data-testid="dialog-invite-partner">
+                          <DialogHeader>
+                            <DialogTitle className="text-foreground">Invite Co-Care Partner</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <Input
+                              placeholder="Enter friend's username..."
+                              value={friendUsername}
+                              onChange={(e) => setFriendUsername(e.target.value)}
+                              className="bg-input border-border text-foreground"
+                              data-testid="input-friend-username"
+                            />
+                            <Button
+                              onClick={handleInviteFriend}
+                              disabled={inviteFriendMutation.isPending || !friendUsername.trim()}
+                              className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+                              data-testid="button-send-invite"
+                            >
+                              {inviteFriendMutation.isPending ? "Sending..." : "Send Invitation"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
