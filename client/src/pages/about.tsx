@@ -26,12 +26,6 @@ export default function About() {
       role: "Chief Technology Officer",
       description: "Architects the technical infrastructure of our cosmic platform",
       icon: "⚡"
-    },
-    {
-      name: "Nova Hearts",
-      role: "Community Manager",
-      description: "Builds bridges between cosmic souls worldwide",
-      icon: "💫"
     }
   ];
 
