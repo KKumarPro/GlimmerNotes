@@ -14,12 +14,6 @@ export default function About() {
       role: "Founder & CEO",
       description: "Visionary behind the cosmic connection experience",
       icon: "🌟"
-    },
-    {
-      name: "Luna Stardust",
-      role: "Lead Designer",
-      description: "Creates the magical user experience across the universe",
-      icon: "🎨"
     }
   ];
 
