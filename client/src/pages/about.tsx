@@ -20,12 +20,6 @@ export default function About() {
       role: "Lead Designer",
       description: "Creates the magical user experience across the universe",
       icon: "🎨"
-    },
-    {
-      name: "Orion Code",
-      role: "Chief Technology Officer",
-      description: "Architects the technical infrastructure of our cosmic platform",
-      icon: "⚡"
     }
   ];
 
