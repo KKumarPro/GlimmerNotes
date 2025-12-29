@@ -30,7 +30,7 @@ export default function About() {
     },
     {
       icon: <Users className="w-8 h-8" />,
-      title: "Inclusive Community",
+      title: "<u>Inclusive Community",
       description: "Our cosmic universe welcomes all souls seeking meaningful connections."
     },
     {
