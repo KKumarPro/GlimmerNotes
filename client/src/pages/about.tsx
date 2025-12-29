@@ -25,7 +25,7 @@ export default function About() {
     },
     {
       icon: <Sparkles className="w-8 h-8" />,
-      title: "Magical Experiences",
+      title: "<u>Magical Experiences",
       description: "Every interaction should feel special, memorable, and enchanting."
     },
     {
