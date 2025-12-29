@@ -35,7 +35,7 @@ export default function About() {
     },
     {
       icon: <Star className="w-8 h-8" />,
-      title: "Privacy First",
+      title: "<u>Privacy First",
       description: "Your memories and relationships are sacred and protected."
     }
   ];
