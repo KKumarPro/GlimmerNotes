@@ -10,7 +10,7 @@ import Snowfall from "react-snowfall";
 export default function About() {
   const teamMembers = [
     {
-      name: "Karan Kumar",
+      name: "<b>Karan Kumar",
       role: "Founder & CEO",
       description: "Visionary behind the cosmic connection experience",
       icon: "🌟"
