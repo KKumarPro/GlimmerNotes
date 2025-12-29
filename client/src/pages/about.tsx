@@ -20,7 +20,7 @@ export default function About() {
   const values = [
     {
       icon: <Heart className="w-8 h-8" />,
-      title: "Authentic Connection",
+      title: "<u>Authentic Connection",
       description: "We believe in fostering genuine relationships that transcend digital boundaries."
     },
     {
