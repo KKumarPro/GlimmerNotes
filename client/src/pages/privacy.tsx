@@ -121,7 +121,7 @@ export default function Privacy() {
                   <div>
                     <h4 className="font-semibold text-foreground mb-2">Service Provision</h4>
                     <p className="text-muted-foreground">
-                      Your data is used to provide Glimmer's core features including sharing, 
+                      Your data is used to provide Glimmer's core features including memory sharing, 
                       pet care, friend connections, and real-time communication.
                     </p>
                   </div>
