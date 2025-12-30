@@ -90,7 +90,7 @@ export default function Privacy() {
                   <div>
                     <h4 className="font-semibold text-foreground mb-2">Memories and Content</h4>
                     <p className="text-muted-foreground">
-                      Your memories, messages, and pet care data are stored securely to provide the
+                      Your memories, messages, and pet care data are stored securely to provide the core 
                       functionality of Glimmer. You have full control over what you share and with whom.
                     </p>
                   </div>
