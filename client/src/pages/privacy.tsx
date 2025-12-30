@@ -133,7 +133,7 @@ export default function Privacy() {
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground mb-2">Communication</h4>
+                    <h4 className="font-semibold text-foreground mb-2"></h4>
                     <p className="text-muted-foreground">
                       We may send you important updates about the service, new features, or security 
                       notices. You can opt out of non-essential communications.
