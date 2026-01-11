@@ -24,7 +24,7 @@ export function ChatBot() {
     {
       id: "welcome",
       type: "assistant",
-      content: "Hello! I'm your Cosmic Assistant. I can help you navigate Glimmer, provide insights about your memories, or suggest activities with friends. How can I help you today?",
+      content: "Hello! I'm your Cosmic Assistant. I can help you navigate Glimmer, provide insights about your memories, or suggest activities with friends. How can I help you today?✨",
       timestamp: new Date()
     }
   ]);
