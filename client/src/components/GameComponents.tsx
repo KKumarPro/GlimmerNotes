@@ -11,7 +11,6 @@ interface GameComponentProps {
   onMove: (gameState: any, nextTurn: string) => void;
 }
 
-// Tic-Tac-Toe Component
 export function TicTacToe({ game, currentUserId, onMove }: GameComponentProps) {
   const [board, setBoard] = useState<(string | null)[]>(
     game.gameState?.board || Array(9).fill(null)
