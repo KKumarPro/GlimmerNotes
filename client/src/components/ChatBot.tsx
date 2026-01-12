@@ -76,7 +76,6 @@ export function ChatBot() {
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Provide context about user's insights if available
     const context = memoryInsights ? `User insights: ${JSON.stringify(memoryInsights)}` : undefined;
     
     chatbotMutation.mutate({ 
