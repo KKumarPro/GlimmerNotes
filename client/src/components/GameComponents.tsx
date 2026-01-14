@@ -253,7 +253,7 @@ export function RockPaperScissors({ game, currentUserId, onMove }: GameComponent
   );
 }
 
-
+// Cosmic Cards Component
 export function CosmicCards({ game, currentUserId, onMove }: GameComponentProps) {
   const [playerCards, setPlayerCards] = useState<any[]>(game.gameState?.playerCards || []);
   const [opponentCards, setOpponentCards] = useState<any[]>(game.gameState?.opponentCards || []);
