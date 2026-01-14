@@ -307,7 +307,7 @@ export function CosmicCards({ game, currentUserId, onMove }: GameComponentProps)
 
     setSelectedCard(card);
     
-    // Opponent plays a random card
+
     const opponentCard = opponentCards[Math.floor(Math.random() * opponentCards.length)];
     
     setTimeout(() => {
